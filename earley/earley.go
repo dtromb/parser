@@ -286,10 +286,6 @@ func GenerateParser(g parser.Grammar) (parser.Parser,error) {
 	return parser, nil
 }
 
-type Stringable interface {
-	String() string
-}
-
 func (p *Elr0Parser) Error(msg string) parser.ParserError {
 	panic("unimplemented B: "+msg)
 }
@@ -733,7 +729,7 @@ func nodeStr(an *astNode, canon map[uintptr]int) string {
 		val := vt.Value()
 		if vts, isstr := val.(string); isstr {
 			valstr = fmt.Sprintf("\"%s\"", vts) 
-		} else if vts, isstr := val.(Stringable); isstr {
+		} else if vts, isstr := val.(parser.Stringable); isstr {
 			valstr = fmt.Sprintf("\"%s\"", vts.String())
 		} else {
 			valstr = fmt.Sprintf("*0x%8.8X", reflect.ValueOf(val).Pointer())

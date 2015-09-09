@@ -165,8 +165,12 @@ type GrammarBuilder struct {
 	ruleOpen bool
 	lhs []GrammarParticle
 	initialRule Production
+	lastRule Production
+	actions map[Production]ValueFunction
 	usedEpsilon bool
 }
+
+type ValueFunction func(p Production, values []interface{}) (interface{}, error)
 
 
 type BasicGrammar struct {
@@ -447,6 +451,7 @@ func OpenGrammarBuilder() *GrammarBuilder {
 		nonterms: make(map[string]GrammarParticle),
 		terms: make(map[string]GrammarParticle),
 		rules: tree.NewTree(),
+		actions: make(map[Production]ValueFunction),
 	}
 	gb.epsilon = &GenericEpsilon{}
 	gb.asterisk = &GenericAsterisk{}
@@ -588,7 +593,6 @@ func (gb *GrammarBuilder) Rhs(rhs ...string) *GrammarBuilder {
 	}
 	if rule.Lhs(0) == gb.asterisk {
 		if rule.RhsLen() != 2 {
-			panic(rule.Rhs(0).String())
 			panic("initial rule `* -> ... must have a Rhs() with exactly two arguments")
 		}
 		if !rule.Rhs(0).Nonterminal() {
@@ -600,7 +604,19 @@ func (gb *GrammarBuilder) Rhs(rhs ...string) *GrammarBuilder {
 		gb.initialRule = rule
 	}
 	gb.rules.Insert(rule)
+	gb.lastRule = rule
 	return gb	
+}
+
+func (gb *GrammarBuilder) Value(fn ValueFunction) *GrammarBuilder {
+	if gb.lastRule == nil || gb.ruleOpen {
+		panic("Value() called before Rhs()")
+	}
+	if _, has := gb.actions[gb.lastRule]; has {
+		panic("Value() called twice")
+	}
+	gb.actions[gb.lastRule] = fn
+	return gb
 }
 
 func (gb *GrammarBuilder) Build() (*BasicGrammar,error) {

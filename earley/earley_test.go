@@ -78,30 +78,6 @@ func TestEarleyDFAEpsilons(t *testing.T) {
 	}
 }
 
-type StringReader struct {
-	buf []byte
-	pos int
-}
-
-func NewStringReader(str string) *StringReader {
-	return &StringReader{
-		buf: []byte(str),
-	}
-}
-
-func (sr *StringReader) Read(p []byte) (n int, err error) {
-	l := len(p)
-	if l > len(sr.buf) - sr.pos {
-		l = len(sr.buf) - sr.pos
-	} 
-	if l == 0 {
-		return 0, io.EOF
-	}
-	copy(p,sr.buf[sr.pos:sr.pos+l])
-	sr.pos += l
-	return l, nil
-}
-
 type SimpleBnfLexer struct {
 	in *bufio.Reader
 	end bool
@@ -279,7 +255,7 @@ func TestParser(t *testing.T) {
 		return
 	}
 
-	lexer.Reset(NewStringReader(metaBnf))
+	lexer.Reset(parser.NewStringReader(metaBnf))
 	p, err := GenerateParser(g)
 	if err != nil {
 		t.Error(err)
@@ -366,11 +342,5 @@ func TestParser(t *testing.T) {
 }
 
 
-func TestPValues(t *testing.T) {
-	gb := parser.OpenGrammarBuilder()
-
-	gb.Name("simple-calculator").
-	   Terminals().
-	   Nonterminals().
 	   
 	

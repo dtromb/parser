@@ -2,6 +2,10 @@ package parser
 
 import "io"
 
+type Stringable interface {
+	String() string
+}
+
 type Lexer interface {
 	Eof() bool
 	Next() (GrammarParticle,error)
@@ -72,3 +76,26 @@ func (bsn *BasicSyntaxTreeNode) Child(idx int) SyntaxTreeNode {
 	return bsn.Expansion[idx]
 }
 
+type StringReader struct {
+	buf []byte
+	pos int
+}
+
+func NewStringReader(str string) *StringReader {
+	return &StringReader{
+		buf: []byte(str),
+	}
+}
+
+func (sr *StringReader) Read(p []byte) (n int, err error) {
+	l := len(p)
+	if l > len(sr.buf) - sr.pos {
+		l = len(sr.buf) - sr.pos
+	} 
+	if l == 0 {
+		return 0, io.EOF
+	}
+	copy(p,sr.buf[sr.pos:sr.pos+l])
+	sr.pos += l
+	return l, nil
+}
