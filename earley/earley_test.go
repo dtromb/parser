@@ -301,7 +301,7 @@ func TestParser(t *testing.T) {
 				val := vt.Value()
 				if s, isStr := val.(string); isStr {
 					valstr = fmt.Sprintf("\"%s\"", s)
-				} else if s, isStr := val.(Stringable); isStr {
+				} else if s, isStr := val.(parser.Stringable); isStr {
 					valstr = fmt.Sprintf("\"%s\"",s.String())
 				} else {
 					valstr = fmt.Sprintf("0x%8.8X", reflect.ValueOf(val).Pointer())
