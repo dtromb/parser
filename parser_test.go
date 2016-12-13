@@ -1,4 +1,4 @@
-package ngen
+package parser
 
 import (
 	"fmt"
