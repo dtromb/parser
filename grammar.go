@@ -1,812 +1,616 @@
-package parser
+package ngen
 
 import (
 	"errors"
-	c "github.com/dtromb/collections"
-	"github.com/dtromb/collections/tree"
 )
 
-type ParticleType int
-const (
-	TERMINAL ParticleType = iota
-	NONTERMINAL
-	ASTERISK
-	EPSILON	
-	BOTTOM
-)
-
-type ProductionClass int
-const (
-	CONSTANT		ProductionClass = iota
-	REGULAR
-	CONTEXT_FREE
-	CONTEXT_SENSITIVE
-	GENERAL
-)
-func (pc ProductionClass) String() string {
-	switch(pc) {
-		case CONSTANT: return "constant"
-		case REGULAR: return "regular"
-		case CONTEXT_FREE: return "context-free"
-		case CONTEXT_SENSITIVE: return "context-sensitive"
-		case GENERAL: return "general"
-	}
-	panic("invalid grammar class")
+type Term interface {
+	Hashable
+	Grammar() Grammar
+	Name() string
+	Id() uint32
+	Terminal() bool
+	Special() bool
 }
 
-// Why we think of these comparisons this way, I have no idea...
-func (pc ProductionClass) ContextSensitive() bool {
-	return pc >= CONTEXT_SENSITIVE
-}
-
-func (pc ProductionClass) ContextFree() bool {
-	return pc <= CONTEXT_FREE
-}
-
-func (pc ProductionClass) Regular() bool {
-	return pc <= REGULAR
-}
-
-
-type Regularity int 
-const (
-	LEFT			Regularity = iota
-	STRICT_LEFT
-	RIGHT
-	STRICT_RIGHT
-	UNITARY
-	STRICT_UNITARY
-	NONREGULAR
-)
-func (r Regularity) String() string {
-	switch (r) {
-		case LEFT: return "left-regular"
-		case STRICT_LEFT: return "strict-left-regular"
-		case RIGHT: return "right-regular"
-		case STRICT_RIGHT: return "strict-right-regular"
-		case UNITARY: return "symmetric-regular"
-		case STRICT_UNITARY: return "strict-symmetric-regular"
-		case NONREGULAR: return "nonregular"
-	}
-	panic("invalid regularity")
-}
-
-func (r Regularity) Left() bool {
-	return r == LEFT || r == STRICT_LEFT || r == UNITARY || r == STRICT_UNITARY
-}
-
-func (r Regularity) Right() bool {
-	return r == RIGHT || r == STRICT_RIGHT || r == UNITARY || r == STRICT_UNITARY
-}
-
-func (r Regularity) Strict() bool {
-	return r == STRICT_LEFT || r == STRICT_RIGHT || r ==  STRICT_UNITARY
-}
-
-func (r Regularity) Unitary() bool {
-	return r == UNITARY || r == STRICT_UNITARY
-}
-
-func (r Regularity) Regular() bool {
-	return r != NONREGULAR
-}
-
-func (r1 Regularity) Join(r2 Regularity) Regularity {
-	if r1.Unitary() && r2.Unitary() {
-		if r1.Strict() && r2.Strict() {
-			return STRICT_UNITARY
-		}
-		return UNITARY
-	}
-	if r1.Left() && r2.Left() {
-		if r1.Strict() && r2.Strict() {
-			return STRICT_LEFT
-		}
-		return LEFT
-	}
-	if r1.Right() && r2.Right() {
-		if r1.Strict() && r2.Strict() {
-			return STRICT_RIGHT
-		}
-		return RIGHT
-	}
-	return NONREGULAR
+type ProductionRule interface {
+	Hashable
+	Grammar() Grammar
+	Id() uint32
+	Lhs() Term
+	RhsLen() int
+	Rhs(idx int) Term
+	RhsSlice() []Term
 }
 
 type Grammar interface {
-	Name() string
-	NumNonterminals() int
-	Nonterminal(idx int) GrammarParticle
-	Nonterminals() []GrammarParticle
-	NumTerminals() int
-	Terminal(idx int) GrammarParticle
-	Terminals() []GrammarParticle
-	Epsilon() GrammarParticle
-	Asterisk() GrammarParticle
-	Bottom() GrammarParticle
-	NumProductions() int
-	Production(idx int) Production
-	Productions() []Production
+	NumTerminal() int
+	Terminal(idx int) Term
+	NumNonterminal() int
+	Nonterminal(idx int) Term
+	Asterisk() Term
+	Epsilon() Term
+	Bottom() Term
+	NumProductionRule() int
+	ProductionRule(idx int) ProductionRule
 }
 
-type GrammarParticle interface {
-	c.Comparable
-	Name() string
-	Terminal() bool
-	Nonterminal() bool
-	Epsilon() bool
-	Asterisk() bool
-	Bottom() bool
-	Grammar() Grammar
-	Type() ParticleType
-	String() string
+type GrammarBuilder interface {
+	Terminal(t string) GrammarBuilder
+	Nonterminal(t string) GrammarBuilder
+	Rule(lhsNt string) GrammarBuilder
+	Build() (Grammar, error)
 }
 
-type Production interface {
-	c.Comparable
-	LhsCopy() []GrammarParticle
-	RhsCopy() []GrammarParticle
-	LhsLen() int
-	RhsLen() int
-	Lhs(idx int) GrammarParticle
-	Rhs(idx int) GrammarParticle
-	Substitute(map[GrammarParticle]GrammarParticle) (Production,bool)
-	String() string
+///
+
+type stdGrammar struct {
+	terminals    []*stdTerm
+	nonterminals []*stdTerm
+	productions  []*stdProduction
+	asterisk     *stdTerm
+	epsilon      *stdTerm
+	bottom       *stdTerm
 }
 
-type GrammarBuilder struct {
-	name string
-	nonterms map[string]GrammarParticle
-	terms map[string]GrammarParticle
-	epsilon GrammarParticle
-	asterisk GrammarParticle
-	bottom GrammarParticle
-	rules tree.Tree
-	ruleOpen bool
-	lhs []GrammarParticle
-	initialRule Production
-	lastRule Production
-	actions map[Production]ValueFunction
-	usedEpsilon bool
+type stdTerm struct {
+	grammar *stdGrammar
+	nonterm bool
+	special bool
+	name    string
+	id      uint32
 }
 
-type ValueFunction func(p Production, values []interface{}) (interface{}, error)
-
-
-type BasicGrammar struct {
-	name string
-	nonterminals []GrammarParticle
-	terminals []GrammarParticle
-	epsilon GrammarParticle
-	asterisk GrammarParticle
-	productions []Production	
-	bottom GrammarParticle
+type stdProduction struct {
+	grammar *stdGrammar
+	id      uint32
+	lhs     Term
+	rhs     []Term
+	hc      uint32
 }
 
-func CompareGrammarParticles(a GrammarParticle, b GrammarParticle) int8 {
-	aType := a.Type()
-	bType := b.Type()
-	if aType > bType {
-		return 1
+func (sg *stdGrammar) NumTerminal() int {
+	return len(sg.terminals)
+}
+
+func (sg *stdGrammar) Terminal(idx int) Term {
+	if idx < 0 || idx >= len(sg.terminals) {
+		panic("terminal index out of range")
 	}
-	if aType < bType {
-		return -1
+	return sg.terminals[idx]
+}
+
+func (sg *stdGrammar) NumNonterminal() int {
+	return len(sg.nonterminals)
+}
+
+func (sg *stdGrammar) Nonterminal(idx int) Term {
+	if idx < 0 || idx >= len(sg.terminals) {
+		panic("nonterminal index out of range")
 	}
-	switch(aType) {
-		case NONTERMINAL: fallthrough
-		case TERMINAL: {
-			aName := a.Name()
-			bName := b.Name()
-			if aName > bName {
-				return 1
-			}
-			if aName < bName {
-				return -1
-			}
-			return 0
+	return sg.nonterminals[idx]
+}
+
+func (sg *stdGrammar) Asterisk() Term {
+	return sg.asterisk
+}
+
+func (sg *stdGrammar) Epsilon() Term {
+	return sg.epsilon
+}
+
+func (sg *stdGrammar) Bottom() Term {
+	return sg.bottom
+}
+
+func (sg *stdGrammar) NumProductionRule() int {
+	return len(sg.productions)
+}
+
+func (sg *stdGrammar) ProductionRule(idx int) ProductionRule {
+	if idx < 0 || idx >= len(sg.productions) {
+		panic("production rule index out of range")
+	}
+	return sg.productions[idx]
+}
+
+func (st *stdTerm) Grammar() Grammar {
+	return st.grammar
+}
+
+func (st *stdTerm) HashCode() uint32 {
+	return st.id
+}
+
+func (st *stdTerm) Equals(o interface{}) bool {
+	if k, ok := o.(Term); ok {
+		return k.Id() == st.id && k.Grammar() == st.grammar
+	}
+	return false
+}
+
+func (st *stdTerm) Name() string {
+	return st.name
+}
+
+func (st *stdTerm) Id() uint32 {
+	return st.id
+}
+
+func (st *stdTerm) Terminal() bool {
+	return !st.nonterm && !st.special
+}
+
+func (st *stdTerm) Special() bool {
+	return st.special
+}
+
+func (sp *stdProduction) HashCode() uint32 {
+	if sp.hc == 0 {
+		sp.hc = 0x10000000 ^ sp.lhs.HashCode()
+		for _, t := range sp.rhs {
+			sp.hc = (sp.hc >> 7) | (sp.hc << 25)
+			sp.hc ^= t.HashCode()
 		}
 	}
-	return 0
+	return sp.hc
 }
 
-type BasicProduction struct {
-	grammar Grammar
-	lhs []GrammarParticle
-	rhs []GrammarParticle
+func (sp *stdProduction) Equals(o interface{}) bool {
+	if p, ok := o.(ProductionRule); ok {
+		if p.HashCode() != sp.HashCode() {
+			return false
+		}
+		if ssp, ok := p.(*stdProduction); ok && ssp == sp {
+			return true
+		}
+		if p.Grammar() != sp.grammar {
+			return false
+		}
+		if !p.Lhs().Equals(sp.lhs) {
+			return false
+		}
+		if p.RhsLen() != len(sp.rhs) {
+			return false
+		}
+		for i, r := range sp.rhs {
+			if !r.Equals(p.Rhs(i)) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
-func (bp *BasicProduction) LhsCopy() []GrammarParticle {
-	lhs := make([]GrammarParticle, 0, len(bp.lhs))
-	copy(lhs, bp.lhs)
-	return lhs
+func (sp *stdProduction) Grammar() Grammar {
+	return sp.grammar
 }
 
-func (bp *BasicProduction) RhsCopy() []GrammarParticle {
-	rhs := make([]GrammarParticle, 0, len(bp.rhs))
-	copy(rhs, bp.rhs)
-	return rhs
+func (sp *stdProduction) Id() uint32 {
+	return sp.id
 }
 
-func (bp *BasicProduction) Lhs(idx int) GrammarParticle {
-	return bp.lhs[idx]
+func (sp *stdProduction) Lhs() Term {
+	return sp.lhs
 }
 
-func (bp *BasicProduction) Rhs(idx int) GrammarParticle {
-	return bp.rhs[idx]
+func (sp *stdProduction) RhsLen() int {
+	return len(sp.rhs)
 }
 
-func (bp *BasicProduction) LhsLen() int {
-	return len(bp.lhs)
+func (sp *stdProduction) Rhs(idx int) Term {
+	if idx < 0 || idx >= len(sp.rhs) {
+		panic("production rule RHS index out of range")
+	}
+	return sp.rhs[idx]
 }
 
-func (bp *BasicProduction) RhsLen() int {
-	return len(bp.rhs)
+func (sp *stdProduction) RhsSlice() []Term {
+	ret := make([]Term, len(sp.rhs))
+	copy(ret, sp.rhs)
+	return ret
 }
 
-func (bp *BasicProduction) String() string {
+func copyGrammar(g Grammar) *stdGrammar {
+	sg := &stdGrammar{}
+	sg.terminals = make([]*stdTerm, g.NumTerminal())
+	sg.nonterminals = make([]*stdTerm, g.NumNonterminal())
+	sg.productions = make([]*stdProduction, g.NumProductionRule())
+	sg.asterisk = &stdTerm{
+		grammar: sg,
+		nonterm: true,
+		special: true,
+		name:    "`*",
+		id:      1,
+	}
+	sg.epsilon = &stdTerm{
+		grammar: sg,
+		nonterm: false,
+		special: true,
+		name:    "`e",
+		id:      2,
+	}
+	sg.asterisk = &stdTerm{
+		grammar: sg,
+		nonterm: false,
+		special: true,
+		name:    "`.",
+		id:      3,
+	}
+	idmap := make(map[uint32]Term)
+	nextId := uint32(100)
+	for i := 0; i < len(sg.terminals); i++ {
+		t := g.Terminal(i)
+		sg.terminals[i] = &stdTerm{
+			grammar: sg,
+			nonterm: false,
+			special: false,
+			name:    t.Name(),
+			id:      nextId,
+		}
+		nextId++
+		if _, has := idmap[t.Id()]; has {
+			panic("duplicate term id in grammar")
+		}
+		idmap[t.Id()] = sg.terminals[i]
+	}
+	for i := 0; i < len(sg.nonterminals); i++ {
+		t := g.Nonterminal(i)
+		sg.nonterminals[i] = &stdTerm{
+			grammar: sg,
+			nonterm: true,
+			special: false,
+			name:    t.Name(),
+			id:      nextId,
+		}
+		nextId++
+		if _, has := idmap[t.Id()]; has {
+			panic("duplicate term id in grammar")
+		}
+		idmap[t.Id()] = sg.nonterminals[i]
+	}
+	for i := 0; i < len(sg.productions); i++ {
+		p := g.ProductionRule(i)
+		sg.productions[i] = &stdProduction{
+			grammar: sg,
+			id:      nextId,
+		}
+		nextId++
+		var ok bool
+		if sg.productions[i].lhs, ok = idmap[p.Lhs().Id()]; !ok {
+			panic("production references unknown term id")
+		}
+		sg.productions[i].rhs = make([]Term, p.RhsLen())
+		for j := 0; j < p.RhsLen(); j++ {
+			if sg.productions[i].rhs[j], ok = idmap[p.Rhs(j).Id()]; !ok {
+				panic("production references unknown term id")
+			}
+		}
+	}
+	return sg
+}
+
+func TermToString(t Term) string {
+	switch t.Id() {
+	case t.Grammar().Asterisk().Id():
+		{
+			return "`*"
+		}
+	case t.Grammar().Bottom().Id():
+		{
+			return "`."
+		}
+	case t.Grammar().Epsilon().Id():
+		{
+			return "`e"
+		}
+	}
+	if t.Terminal() {
+		return t.Name()
+	}
+	return "<" + t.Name() + ">"
+}
+
+func ProductionRuleToString(pr ProductionRule) string {
 	var buf []byte
-	for _, k := range bp.lhs {
-		buf = append(buf, k.String()...)
-		buf = append(buf, " "...)
+	buf = []byte(TermToString(pr.Lhs()))
+	buf = append(buf, " := "...)
+	for i := 0; i < pr.RhsLen(); i++ {
+		term := pr.Rhs(i)
+		//fmt.Printf("%d: %s\n", i, TermToString(term))
+		buf = append(buf, TermToString(term)...)
+		buf = append(buf, byte(' '))
 	}
-	buf = append(buf, "-> "...)
-	for i, k := range bp.rhs {
-		buf = append(buf, k.String()...)
-		if i < len(bp.rhs)-1 {
-			buf = append(buf, " "...)
-		}
-	}
+	buf = buf[0 : len(buf)-1]
 	return string(buf)
 }
 
-func (bp *BasicProduction) Substitute(smap map[GrammarParticle]GrammarParticle) (Production, bool) {
-	var changed bool
-	bpc := &BasicProduction{
-		grammar:bp.grammar, 
-		lhs:make([]GrammarParticle, len(bp.lhs)), 
-		rhs:make([]GrammarParticle, len(bp.rhs)),
+type stdGrammarBuilder struct {
+	terminals     map[string]*prototypeTerm
+	nonterminals  map[string]*prototypeTerm
+	finishedRules map[uint32][]*prototypeProduction
+	openRule      *prototypeProduction
+	initialRule   *prototypeProduction
+	nextId        uint32
+	grammar       *prototypeGrammar
+	built         bool
+	builtGrammar  Grammar
+}
+
+type prototypeGrammar struct {
+	*stdGrammarBuilder
+}
+
+type prototypeTerm struct {
+	*stdTerm
+	builder *stdGrammarBuilder
+}
+
+type prototypeProduction struct {
+	*stdProduction
+	builder *stdGrammarBuilder
+}
+
+func NewGrammarBuilder() GrammarBuilder {
+	gb := &stdGrammarBuilder{
+		nextId:        100,
+		terminals:     make(map[string]*prototypeTerm),
+		nonterminals:  make(map[string]*prototypeTerm),
+		finishedRules: make(map[uint32][]*prototypeProduction),
+		grammar:       &prototypeGrammar{},
 	}
-	for i, p := range bp.lhs {
-		if rp, has := smap[p]; has {
-			bpc.lhs[i] = rp
-			changed = true
+	gb.grammar.stdGrammarBuilder = gb
+	gb.nonterminals["`*"] = &prototypeTerm{
+		builder: gb,
+		stdTerm: &stdTerm{
+			nonterm: true,
+			special: true,
+			name:    "`*",
+			id:      1,
+		},
+	}
+	gb.terminals["`e"] = &prototypeTerm{
+		builder: gb,
+		stdTerm: &stdTerm{
+			nonterm: false,
+			special: true,
+			name:    "`e",
+			id:      2,
+		},
+	}
+	gb.terminals["`."] = &prototypeTerm{
+		builder: gb,
+		stdTerm: &stdTerm{
+			nonterm: false,
+			special: true,
+			name:    "`.",
+			id:      3,
+		},
+	}
+	return gb
+}
+
+func (sg *stdGrammarBuilder) isValidSymbolCharacter(c byte) bool {
+	return ((c >= 'a') && (c <= 'z')) ||
+		((c >= 'A') && (c <= 'Z')) ||
+		((c >= '0') && (c <= '9')) ||
+		(c == '-') || (c == '_')
+}
+
+func (sg *stdGrammarBuilder) getTerm(name string, terminal bool) (Term, error) {
+	if terminal {
+		if term, has := sg.terminals[name]; has {
+			return term, nil
 		} else {
-			bpc.lhs[i] = p
+			for _, c := range []byte(name) {
+				if !sg.isValidSymbolCharacter(c) {
+					return nil, errors.New("name argument is an invalid term name")
+				}
+			}
 		}
-	}
-	for i, p := range bp.rhs {
-		if rp, has := smap[p]; has {
-			bpc.rhs[i] = rp
-			changed = true
+		sg.terminals[name] = &prototypeTerm{
+			builder: sg,
+			stdTerm: &stdTerm{
+				nonterm: false,
+				special: false,
+				name:    name,
+				id:      sg.nextId,
+			},
+		}
+		sg.nextId++
+		return sg.terminals[name], nil
+	} else {
+		if term, has := sg.nonterminals[name]; has {
+			return term, nil
 		} else {
-			bpc.rhs[i] = p
-		}
-	}
-	return bpc, changed
-}
-
-func (bp *BasicProduction) CompareTo(o c.Comparable) int8 {
-	op := o.(Production)
-	if op == Production(bp) {
-		return 0
-	}
-	
-	llen := len(bp.lhs)
-	opllen := op.LhsLen()
-	
-	if llen < opllen {
-		return -1
-	}
-	if llen > opllen {
-		return 1
-	}
-	for i, p := range bp.lhs {
-		r := p.CompareTo(op.Lhs(i))
-		if r != 0 {
-			return r
-		}
-	} 
-	
-	rlen := len(bp.rhs)
-	oprlen := op.RhsLen()
-	
-	if rlen < oprlen {
-		return -1
-	}
-	if rlen > oprlen {
-		return 1
-	}
-	for i, p := range bp.rhs {
-		r := p.CompareTo(op.Rhs(i))
-		if r != 0 {
-			return r
-		}
-	} 
-	
-	return 0
-}
-
-
-type GenericBottom struct {
-	grammar Grammar
-}
-
-func (gb *GenericBottom) Name() string { return "`." }
-func (gb *GenericBottom) Terminal() bool { return false }
-func (gb *GenericBottom) Nonterminal() bool { return false }
-func (gb *GenericBottom) Epsilon() bool { return false }
-func (gb *GenericBottom) Asterisk() bool { return false }
-func (gb *GenericBottom) Bottom() bool { return true }
-func (gb *GenericBottom) Grammar() Grammar { return gb.grammar }
-func (gb *GenericBottom) Type() ParticleType { return TERMINAL }
-func (gb *GenericBottom) String() string { return gb.Name() }
-func (gb *GenericBottom) CompareTo(o c.Comparable) int8 { 
-	return CompareGrammarParticles(gb,o.(GrammarParticle))
-}
-
-type GrammarTerminal interface {
-	GrammarParticle
-	Value(val interface{}) *ValueTerminal
-}
-
-type GenericTerminal struct {
-	GrammarTerminal
-	grammar Grammar
-	name string
-}
-
-func (gt *GenericTerminal) Value(val interface{}) *ValueTerminal {
-	return &ValueTerminal{generic:gt, value: val}
-}
-func (gt *GenericTerminal) Name() string { return gt.name }
-func (gt *GenericTerminal) Terminal() bool { return true }
-func (gt *GenericTerminal) Nonterminal() bool { return false }
-func (gt *GenericTerminal) Epsilon() bool { return false }
-func (gt *GenericTerminal) Asterisk() bool { return false }
-func (gt *GenericTerminal) Bottom() bool { return false }
-func (gt *GenericTerminal) Grammar() Grammar { return gt.grammar }
-func (gt *GenericTerminal) Type() ParticleType { return TERMINAL }
-func (gt *GenericTerminal) String() string { return gt.name }
-func (gt *GenericTerminal) CompareTo(o c.Comparable) int8 { 
-	return CompareGrammarParticles(gt,o.(GrammarParticle))
-}
-
-func NewValueTerminal(generic GrammarParticle, value interface{}) *ValueTerminal {
-	return &ValueTerminal{
-		generic: generic,
-		value: value,
-	}
-}
-
-type ValueTerminal struct {
-	generic GrammarParticle
-	value interface{}
-}
-func (vt *ValueTerminal) Value() interface{} { return vt.value }
-func (vt *ValueTerminal) CanonicalTerminal() GrammarParticle { return vt.generic }
-func (vt *ValueTerminal) Name() string { return vt.generic.Name() }
-func (vt *ValueTerminal) Terminal() bool { return true }
-func (vt *ValueTerminal) Nonterminal() bool { return false }
-func (vt *ValueTerminal) Epsilon() bool { return false }
-func (vt *ValueTerminal) Asterisk() bool { return false }
-func (vt *ValueTerminal) Bottom() bool { return false }
-func (vt *ValueTerminal) Grammar() Grammar { return vt.generic.Grammar() }
-func (vt *ValueTerminal) Type() ParticleType { return TERMINAL }
-func (vt *ValueTerminal) String() string { return vt.Name() }
-func (vt *ValueTerminal) CompareTo(o c.Comparable) int8 { 
-	return CompareGrammarParticles(vt.generic,o.(GrammarParticle))
-}
-
-type GenericNonterminal struct {
-	grammar Grammar
-	name string
-}
-func (gt *GenericNonterminal) Name() string { return gt.name }
-func (gt *GenericNonterminal) Terminal() bool { return false }
-func (gt *GenericNonterminal) Nonterminal() bool { return true }
-func (gt *GenericNonterminal) Epsilon() bool { return false }
-func (gt *GenericNonterminal) Asterisk() bool { return false }
-func (gt *GenericNonterminal) Bottom() bool { return false }
-func (gt *GenericNonterminal) Grammar() Grammar { return gt.grammar }
-func (gt *GenericNonterminal) Type() ParticleType { return NONTERMINAL }
-func (gt *GenericNonterminal) String() string { return "<"+gt.name+">" }
-func (gt *GenericNonterminal) CompareTo(o c.Comparable) int8 { 
-	return CompareGrammarParticles(gt,o.(GrammarParticle))
-}
-
-type GenericEpsilon struct {
-	grammar Grammar
-}
-func (ge *GenericEpsilon) Name() string { return "`e"}
-func (ge *GenericEpsilon) Terminal() bool { return false }
-func (ge *GenericEpsilon) Nonterminal() bool { return false }
-func (ge *GenericEpsilon) Epsilon() bool { return true }
-func (ge *GenericEpsilon) Asterisk() bool { return false }
-func (ge *GenericEpsilon) Bottom() bool { return false }
-func (ge *GenericEpsilon) Grammar() Grammar { return ge.grammar }
-func (ge *GenericEpsilon) Type() ParticleType { return EPSILON }
-func (ge *GenericEpsilon) String() string { return ge.Name() }
-func (ge *GenericEpsilon) CompareTo(o c.Comparable) int8 { 
-	return CompareGrammarParticles(ge,o.(GrammarParticle))
-}
-	
-type GenericAsterisk struct {
-	grammar Grammar
-}
-func (ga *GenericAsterisk) Name() string { return "`*"}
-func (ga *GenericAsterisk) Terminal() bool { return false }
-func (ga *GenericAsterisk) Nonterminal() bool { return false }
-func (ga *GenericAsterisk) Epsilon() bool { return false }
-func (ga *GenericAsterisk) Asterisk() bool { return true }
-func (ga *GenericAsterisk) Bottom() bool { return false }
-func (ga *GenericAsterisk) Grammar() Grammar { return ga.grammar }
-func (ga *GenericAsterisk) String() string { return ga.Name() }
-func (ga *GenericAsterisk) Type() ParticleType { return ASTERISK }
-func (ga *GenericAsterisk) CompareTo(o c.Comparable) int8 { 
-	return CompareGrammarParticles(ga,o.(GrammarParticle))
-}
-
-func OpenGrammarBuilder() *GrammarBuilder {
-	gb := &GrammarBuilder{
-		nonterms: make(map[string]GrammarParticle),
-		terms: make(map[string]GrammarParticle),
-		rules: tree.NewTree(),
-		actions: make(map[Production]ValueFunction),
-	}
-	gb.epsilon = &GenericEpsilon{}
-	gb.asterisk = &GenericAsterisk{}
-	gb.bottom = &GenericBottom{}
-	return gb
-}
-
-func (gb *GrammarBuilder) Name(grammarName string) *GrammarBuilder {
-	if gb.name != "" {
-		panic("Name() called twice")
-	}
-	gb.name = grammarName
-	return gb
-}
-
-func (gb *GrammarBuilder) Terminals(termNames ...string) *GrammarBuilder {
-	for _, name := range termNames {
-		if name[0] == '`' {
-			panic("illegal terminal name (may not start with '`') in Terminals()")
-		}
-		if _, has := gb.nonterms[name]; has {
-			panic("nonterminal named '"+name+"' already exists in Terminals()")
-		}
-		if _, has := gb.terms[name]; has {
-			panic("terminal named '"+name+"' already exists in Terminals()")
-		}
-		gb.terms[name] = &GenericTerminal{name: name}
-	}
-	return gb
-} 
-
-func (gb *GrammarBuilder) Nonterminals(nontermNames ...string) *GrammarBuilder {		
-
-	for _, name := range nontermNames {	
-		if name[0] == '`' {
-			panic("illegal nonterminal name (may not start with '`') in Nonterminals()")
-		}
-		if _, has := gb.nonterms[name]; has {
-			panic("nonterminal named '"+name+"' already exists in Nonterminals()")
-		}
-		if _, has := gb.terms[name]; has {
-			panic("terminal named '"+name+"' already exists in Nonterminals()")
-		}
-		gb.nonterms[name] = &GenericNonterminal{name: name}
-	}
-	return gb
-}
-
-func (gb *GrammarBuilder) Rule() *GrammarBuilder {
-	if gb.ruleOpen {
-		panic("Rule() called twice")
-	}
-	gb.ruleOpen = true
-	gb.lhs = nil
-	return gb
-}
-
-func (gb *GrammarBuilder) Lhs(lhs ...string) *GrammarBuilder {
-	var ok bool
-	if !gb.ruleOpen {
-		panic("Lhs() called before Rule()")
-	}
-	if gb.lhs != nil {
-		panic("Lhs() called twice")
-	}
-	if len(lhs) == 0 {
-		panic("Lhs() may not have an empty argument list")
-	}
-	lhsarr := make([]GrammarParticle, 0, len(lhs))
-	for _, partName := range lhs {
-		var part GrammarParticle
-		if partName == "`*" {
-			if gb.initialRule != nil {
-				panic("initial rule `* -> ... already given by a Rule()")
+			for _, c := range []byte(name) {
+				if !sg.isValidSymbolCharacter(c) {
+					return nil, errors.New("name argument is an invalid term name")
+				}
 			}
-			if len(lhs) != 1 {
-				panic("intial rule `* -> ... must have only one Lhs() argument")
+		}
+		sg.nonterminals[name] = &prototypeTerm{
+			builder: sg,
+			stdTerm: &stdTerm{
+				nonterm: true,
+				special: false,
+				name:    name,
+				id:      sg.nextId,
+			},
+		}
+		sg.nextId++
+		return sg.nonterminals[name], nil
+	}
+}
+
+func (sg *stdGrammarBuilder) Terminal(t string) GrammarBuilder {
+	if sg.openRule == nil {
+		panic("Terminal() called before Rule()")
+	}
+	addTerm, err := sg.getTerm(t, true)
+	if err != nil {
+		panic("Terminal() " + err.Error())
+	}
+	sg.openRule.rhs = append(sg.openRule.rhs, addTerm)
+	return sg
+}
+
+func (sg *stdGrammarBuilder) Nonterminal(nt string) GrammarBuilder {
+	if sg.openRule == nil {
+		panic("Nonterminal() called before Rule()")
+	}
+	addTerm, err := sg.getTerm(nt, false)
+	if err != nil {
+		panic("Nonterminal() " + err.Error())
+	}
+	sg.openRule.rhs = append(sg.openRule.rhs, addTerm)
+	return sg
+}
+
+func (sg *stdGrammarBuilder) Rule(lhsNt string) GrammarBuilder {
+	if sg.openRule != nil {
+		if sg.openRule.lhs.Name() == "`*" {
+			if sg.openRule.RhsLen() != 2 ||
+				sg.openRule.Rhs(0).Terminal() ||
+				sg.openRule.Rhs(1).Name() != "`." {
+				panic("invalid inital rule format: " + ProductionRuleToString(sg.openRule))
 			}
-			part = gb.asterisk
+			if sg.initialRule != nil && !sg.built {
+				panic("duplicate initial rule")
+			}
+			sg.initialRule = sg.openRule
+		}
+		hc := sg.openRule.HashCode()
+		if m, has := sg.finishedRules[hc]; !has {
+			sg.finishedRules[hc] = []*prototypeProduction{sg.openRule}
 		} else {
-			if part, ok = gb.nonterms[partName]; !ok {
-				if part, ok = gb.terms[partName]; !ok {
-					panic("unknown grammar particle '"+partName+"' in Lhs()")
+			for _, pr := range m {
+				if pr.Equals(sg.openRule) {
+					panic("duplicate rule")
 				}
 			}
+			sg.finishedRules[hc] = append(sg.finishedRules[hc], sg.openRule)
 		}
-		lhsarr = append(lhsarr, part)
 	}
-	gb.lhs = lhsarr
-	return gb
+	lhsTerm, err := sg.getTerm(lhsNt, false)
+	if err != nil {
+		panic("Rule() " + err.Error())
+	}
+	sg.openRule = &prototypeProduction{
+		builder: sg,
+		stdProduction: &stdProduction{
+			id:  sg.nextId,
+			rhs: []Term{},
+			lhs: lhsTerm,
+		},
+	}
+	sg.nextId++
+	return sg
 }
 
-func (gb *GrammarBuilder) Rhs(rhs ...string) *GrammarBuilder {
-	var ok bool
-	if !gb.ruleOpen {
-		panic("Rhs() called before Rule()")
+func (sg *stdGrammarBuilder) Build() (Grammar, error) {
+	if sg.built {
+		return sg.builtGrammar, nil
 	}
-	if gb.lhs == nil {
-		panic("Rhs() called before Lhs()")
+	sg.built = true
+	sg.Rule("`*")
+	grammar := &stdGrammar{
+		terminals:    make([]*stdTerm, 0, len(sg.terminals)-1),
+		nonterminals: make([]*stdTerm, 0, len(sg.nonterminals)-2),
+		productions:  make([]*stdProduction, 0, sg.grammar.NumProductionRule()),
+		asterisk:     sg.nonterminals["`*"].stdTerm,
+		epsilon:      sg.terminals["`e"].stdTerm,
+		bottom:       sg.terminals["`."].stdTerm,
 	}
-	if len(rhs) == 0 {
-		panic("Rhs() may not have an empty argument list")
+	grammar.asterisk.grammar = grammar
+	grammar.epsilon.grammar = grammar
+	grammar.bottom.grammar = grammar
+	for _, t := range sg.terminals {
+		grammar.terminals = append(grammar.terminals, t.stdTerm)
 	}
-	rhsarr := make([]GrammarParticle, 0, len(rhs))
-	for _, partName := range rhs {
-		var part GrammarParticle
-		if partName[0] == '`' {
-			if partName == "`e" {
-				if len(rhs) > 1 {
-					panic("Rhs() with epsilon must be of unit length")
-				}
-				gb.usedEpsilon = true
-				part = gb.epsilon
-			} 
-			if partName == "`." {
-				if !gb.lhs[0].Asterisk() {
-					panic("`. may only appear in `* -> ... ")
-				}
-				part = gb.bottom
-			} 
-		} 
-		if part == nil {
-			if part, ok = gb.nonterms[partName]; !ok {
-				if part, ok = gb.terms[partName]; !ok {
-					panic("unknown grammar particle '"+partName+"' in Rhs()")
-				}
-			}
+	for _, nt := range sg.nonterminals {
+		grammar.nonterminals = append(grammar.nonterminals, nt.stdTerm)
+	}
+	for _, m := range sg.finishedRules {
+		for _, pr := range m {
+			grammar.productions = append(grammar.productions, pr.stdProduction)
+			pr.grammar = grammar
 		}
-		rhsarr = append(rhsarr, part)
 	}
-	rule := &BasicProduction{
-		lhs: gb.lhs,
-		rhs: rhsarr,
-	}
-	gb.ruleOpen = false
-	gb.lhs = nil
-	if gb.rules.Has(rule) {
-		panic("rule already exists during Rhs()")
-	}
-	if rule.Lhs(0) == gb.asterisk {
-		if rule.RhsLen() != 2 {
-			panic("initial rule `* -> ... must have a Rhs() with exactly two arguments")
-		}
-		if !rule.Rhs(0).Nonterminal() {
-			panic("initial rule `* -> ... must have a Rhs() with a nonterminal argument")
-		}
-		if !rule.Rhs(1).Bottom() {
-			panic("initial rule `* -> ... must have a Rhs() ending with `.")
-		}
-		gb.initialRule = rule
-	}
-	gb.rules.Insert(rule)
-	gb.lastRule = rule
-	return gb	
+	sg.builtGrammar = grammar
+	return grammar, nil
 }
 
-func (gb *GrammarBuilder) Value(fn ValueFunction) *GrammarBuilder {
-	if gb.lastRule == nil || gb.ruleOpen {
-		panic("Value() called before Rhs()")
-	}
-	if _, has := gb.actions[gb.lastRule]; has {
-		panic("Value() called twice")
-	}
-	gb.actions[gb.lastRule] = fn
-	return gb
+func (pg *prototypeGrammar) NumTerminal() int {
+	return len(pg.nonterminals)
 }
 
-func (gb *GrammarBuilder) Build() (*BasicGrammar,error) {
-	if gb.name == "" {
-		return nil, errors.New("Name() not called")
-	}
-	if gb.ruleOpen {
-		return nil, errors.New("Rhs() not called after Rule()")
-	}
-	if gb.initialRule == nil {
-		return nil, errors.New("No initial production `* -> ... given")
-	}
-	var k int
-	if gb.usedEpsilon {
-		k = 1
-	}
-	g := &BasicGrammar{
-		name: gb.name,
-		nonterminals: make([]GrammarParticle, len(gb.nonterms)+1),
-		terminals: make([]GrammarParticle, len(gb.terms)+k),
-		productions: make([]Production, gb.rules.Size()),
-	}
-	g.epsilon = &GenericEpsilon{grammar: g}
-	g.asterisk = &GenericAsterisk{grammar: g}
-	g.bottom = &GenericBottom{grammar: g}
-	smap := make(map[GrammarParticle]GrammarParticle)
-	smap[gb.asterisk] = g.asterisk
-	smap[gb.epsilon] = g.epsilon
-	smap[gb.bottom] = g.bottom
+func (pg *prototypeGrammar) Terminal(idx int) Term {
 	i := 0
-	for _, p := range gb.nonterms {
-		g.nonterminals[i+1] = &GenericNonterminal{
-			name: p.Name(),
-			grammar: g,
+	for _, term := range pg.terminals {
+		if i < idx {
+			i++
+		} else {
+			return term
 		}
-		smap[p] = g.nonterminals[i+1]
-		i++
-	}	
-	g.nonterminals[0] = g.asterisk
-	i = 0
-	for _, p := range gb.terms {
-		g.terminals[i+k] = &GenericTerminal{
-			name: p.Name(),
-			grammar: g,
+	}
+	return nil
+}
+
+func (pg *prototypeGrammar) NumNonterminal() int {
+	return len(pg.terminals)
+}
+
+func (pg *prototypeGrammar) Nonterminal(idx int) Term {
+	i := 0
+	for _, term := range pg.nonterminals {
+		if i < idx {
+			i++
+		} else {
+			return term
 		}
-		smap[p] = g.terminals[i+k]
-		i++
 	}
-	if gb.usedEpsilon {
-		g.terminals[0] = g.epsilon
+	return nil
+}
+
+func (pg *prototypeGrammar) Asterisk() Term {
+	return pg.nonterminals["`*"]
+}
+
+func (pg *prototypeGrammar) Epsilon() Term {
+	return pg.terminals["`e"]
+}
+
+func (pg *prototypeGrammar) Bottom() Term {
+	return pg.terminals["`."]
+}
+
+func (pg *prototypeGrammar) NumProductionRule() int {
+	c := 0
+	for _, m := range pg.finishedRules {
+		c += len(m)
 	}
-	i = 0
-	for c := gb.rules.First(); c.HasNext(); {
-		g.productions[i], _ = c.Next().(Production).Substitute(smap)
-		i++
-	}
-	return g, nil
+	return c
 }
 
-func (bg *BasicGrammar)	Name() string {
-	return bg.name
-}
-
-func (bg *BasicGrammar) NumNonterminals() int {
-	return len(bg.nonterminals)
-}
-
-func (bg *BasicGrammar) Nonterminal(idx int) GrammarParticle {
-	return bg.nonterminals[idx]
-}
-
-func (bg *BasicGrammar)Nonterminals() []GrammarParticle {
-	nts := make([]GrammarParticle, len(bg.nonterminals))
-	copy(nts, bg.nonterminals)
-	return nts
-}
-
-func (bg *BasicGrammar) NumTerminals() int {
-	return len(bg.terminals)
-}
-
-func (bg *BasicGrammar) Terminal(idx int) GrammarParticle {
-	return bg.terminals[idx]
-}
-
-func (bg *BasicGrammar) Terminals() []GrammarParticle {
-	ts := make([]GrammarParticle, len(bg.terminals))
-	copy(ts, bg.terminals)
-	return ts
-}
-
-func (bg *BasicGrammar) Epsilon() GrammarParticle {
-	return bg.epsilon
-}
-
-func (bg *BasicGrammar) Asterisk() GrammarParticle {
-	return bg.asterisk
-}
-
-func (bg *BasicGrammar) Bottom() GrammarParticle {
-	return bg.bottom
-}
-
-func (bg *BasicGrammar) NumProductions() int {
-	return len(bg.productions)
-}
-
-func (bg *BasicGrammar) Production(idx int) Production {
-	return bg.productions[idx]
-}
-
-func (bg *BasicGrammar) Productions() []Production {
-	ps := make([]Production, len(bg.productions))
-	copy(ps, bg.productions)
-	return ps
-}
-
-func GetProductionRegularity(p Production) Regularity {
-	if p.LhsLen() != 1 || !p.Lhs(0).Nonterminal() {
-		return NONREGULAR
-	}
-	if p.RhsLen() == 1 {
-		return STRICT_UNITARY
-	}
-	if p.RhsLen() == 2 && p.Rhs(0).Terminal() && p.Rhs(1).Nonterminal() {
-		return STRICT_RIGHT
-	}
-	if p.RhsLen() == 2 && p.Rhs(0).Nonterminal() && p.Rhs(1).Terminal() {
-		return STRICT_LEFT
-	}
-	if p.Rhs(0).Nonterminal() {
-		for i := 1; i < p.RhsLen(); i++ {
-			if p.Rhs(i).Nonterminal() {
-				return NONREGULAR
+func (pg *prototypeGrammar) ProductionRule(idx int) ProductionRule {
+	c := 0
+	for _, m := range pg.finishedRules {
+		for i, pr := range m {
+			if c+i == idx {
+				return pr
 			}
 		}
-		return LEFT
+		c += len(m)
 	}
-	if p.Rhs(p.RhsLen()-1).Nonterminal() {
-		for i := p.RhsLen()-2; i >= 0; i-- {
-			if p.Rhs(i).Nonterminal() {
-				return NONREGULAR
-			}
-		}
-		return RIGHT
-	}
-	for i := 0; i < p.RhsLen(); i++ {
-		if p.Rhs(i).Nonterminal() {
-			return NONREGULAR
-		}
-	}
-	return UNITARY
+	return nil
 }
 
-func GetProductionClass(p Production) ProductionClass {
-	//fmt.Println(p.String())
-	if p.LhsLen() == 1 && p.Lhs(0).Nonterminal() {
-		if p.RhsLen() == 1 && p.Rhs(0).Terminal() {
-			return CONSTANT	
-		}
-		reg := GetProductionRegularity(p)
-		if reg.Regular() {
-			return REGULAR
-		}
-		return CONTEXT_FREE
-	}
-	ntc := 0
-	var pos int
-	for i := 1; i < p.LhsLen(); i++ {
-		if p.Lhs(i).Nonterminal() {
-			ntc++
-			pos = i
-			if ntc == 2 {
-				return GENERAL
-			}
-		}
-	}
-	if p.RhsLen() < pos {
-		return GENERAL
-	}
-	for i := 0; i < pos; i++ {
-		if p.Rhs(i).CompareTo(p.Lhs(i)) != 0 {
-			return GENERAL
-		}
-	}
-	for i := 0; i < p.LhsLen()-pos; i++ {
-		if p.Lhs(p.LhsLen()-i-1).CompareTo(p.Rhs(p.RhsLen()-i-1)) != 0 {
-			return GENERAL
-		}
-	}
-	return CONTEXT_SENSITIVE
+func (pt *prototypeTerm) Grammar() Grammar {
+	return pt.builder.grammar
 }
 
+func (pt *prototypeProduction) Grammar() Grammar {
+	return pt.builder.grammar
+}
