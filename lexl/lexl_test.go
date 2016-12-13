@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/dtromb/ngen"
+	"github.com/dtromb/parser"
 )
 
 var lexl0Text string = `
@@ -51,7 +51,7 @@ func TestLexlLexer(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	in := ngen.NewStringReader(lexl0Text)
+	in := parser.NewStringReader(lexl0Text)
 	lex, err := lexer.Open(in)
 	if err != nil {
 		t.Error(err)

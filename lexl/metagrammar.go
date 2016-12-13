@@ -1,6 +1,6 @@
 package lexl
 
-import "github.com/dtromb/ngen"
+import "github.com/dtromb/parser"
 
 // Metagrammar that describes the LEXL lexer generator description language.
 
@@ -171,8 +171,8 @@ classescape:{{
 
 `
 
-func GenerateLexl0Grammar() ngen.Grammar {
-	g := ngen.NewGrammarBuilder()
+func GenerateLexl0Grammar() parser.Grammar {
+	g := parser.NewGrammarBuilder()
 	g.Rule("lexl0").Nonterminal("lexerBlock")
 	g.Rule("lexl0").Nonterminal("comment")
 	g.Rule("lexl0").Nonterminal("lexerBlock").Nonterminal("lexl0")

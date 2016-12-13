@@ -6,7 +6,7 @@ import (
 	"io"
 	"reflect"
 
-	"github.com/dtromb/ngen"
+	"github.com/dtromb/parser"
 )
 
 // MatchBlock - A semantic representation of a single lexer token recognizer.
@@ -406,7 +406,7 @@ func (sr LexlRepresentation) ConstructLexlNdfa() (LexlNdfa, error) {
 	return &stdLexlNdfa{states: res}, nil
 }
 
-func GenerateLexlLexerFromDfa(dfa LexlDfa, grammar ngen.Grammar) (ngen.Lexer, error) {
+func GenerateLexlLexerFromDfa(dfa LexlDfa, grammar parser.Grammar) (parser.Lexer, error) {
 	stdDfa, ok := dfa.(*stdLexlDfa)
 	if !ok {
 		stdDfaIf, err := cloneDfa(stdDfa)
@@ -419,9 +419,9 @@ func GenerateLexlLexerFromDfa(dfa LexlDfa, grammar ngen.Grammar) (ngen.Lexer, er
 }
 
 type stdLexlDfaLexer struct {
-	grammar   ngen.Grammar
+	grammar   parser.Grammar
 	dfa       *stdLexlDfa
-	terminals []ngen.Term
+	terminals []parser.Term
 }
 
 type stdLexlDfaLexerState struct {
@@ -439,20 +439,20 @@ type stdLexlDfaLexerState struct {
 	llinelen     int
 }
 
-func (dfa *stdLexlDfa) GenerateLexer(grammar ngen.Grammar) (ngen.Lexer, error) {
-	g := ngen.GetIndexedGrammar(grammar)
-	termIndexIf, err := g.GetIndex(ngen.GrammarIndexTypeTerm)
+func (dfa *stdLexlDfa) GenerateLexer(grammar parser.Grammar) (parser.Lexer, error) {
+	g := parser.GetIndexedGrammar(grammar)
+	termIndexIf, err := g.GetIndex(parser.GrammarIndexTypeTerm)
 	if err != nil {
 		return nil, err
 	}
-	termIndex := termIndexIf.(ngen.TermGrammarIndex)
+	termIndex := termIndexIf.(parser.TermGrammarIndex)
 	for _, tn := range termIndex.GetTerminalNames() {
 		fmt.Println(" * " + tn)
 	}
 	lexer := &stdLexlDfaLexer{
 		grammar:   grammar,
 		dfa:       dfa,
-		terminals: make([]ngen.Term, len(dfa.terminals)),
+		terminals: make([]parser.Term, len(dfa.terminals)),
 	}
 	for i, termName := range dfa.terminals {
 		term, err := termIndex.GetTerminal(termName)
@@ -464,11 +464,11 @@ func (dfa *stdLexlDfa) GenerateLexer(grammar ngen.Grammar) (ngen.Lexer, error) {
 	return lexer, nil
 }
 
-func (ldl *stdLexlDfaLexer) Grammar() ngen.Grammar {
+func (ldl *stdLexlDfaLexer) Grammar() parser.Grammar {
 	return ldl.grammar
 }
 
-func (ldl *stdLexlDfaLexer) Open(in io.Reader) (ngen.LexerState, error) {
+func (ldl *stdLexlDfaLexer) Open(in io.Reader) (parser.LexerState, error) {
 	var reader LexlReader
 	var ok bool
 	if reader, ok = in.(LexlReader); !ok {
@@ -511,7 +511,7 @@ func MatchExprToString(expr MatchExpr) string {
 	}
 }
 
-func (dls *stdLexlDfaLexerState) Lexer() ngen.Lexer {
+func (dls *stdLexlDfaLexerState) Lexer() parser.Lexer {
 	return dls.lexer
 }
 
@@ -525,7 +525,7 @@ func (dls *stdLexlDfaLexerState) HasMoreTokens() (bool, error) {
 
 type stdLexlToken struct {
 	lexer    *stdLexlDfaLexerState
-	terminal ngen.Term
+	terminal parser.Term
 	literal  string
 	fpos     int
 	lpos     int
@@ -535,7 +535,7 @@ type stdLexlToken struct {
 	lcol     int
 }
 
-func (dls *stdLexlDfaLexerState) makeToken(terminal ngen.Term, literal string) ngen.Token {
+func (dls *stdLexlDfaLexerState) makeToken(terminal parser.Term, literal string) parser.Token {
 	tok := &stdLexlToken{
 		lexer:    dls,
 		terminal: terminal,
@@ -553,7 +553,7 @@ func (dls *stdLexlDfaLexerState) makeToken(terminal ngen.Term, literal string) n
 	return tok
 }
 
-func (lt *stdLexlToken) LexerState() ngen.LexerState {
+func (lt *stdLexlToken) LexerState() parser.LexerState {
 	return lt.lexer
 }
 
@@ -587,7 +587,7 @@ func (lt *stdLexlToken) LastColumn() int {
 	return lt.lcol - 1
 }
 
-func (lt *stdLexlToken) Terminal() ngen.Term {
+func (lt *stdLexlToken) Terminal() parser.Term {
 	return lt.terminal
 }
 
@@ -595,7 +595,7 @@ func (lt *stdLexlToken) Literal() string {
 	return lt.literal
 }
 
-func (dls *stdLexlDfaLexerState) NextToken() (ngen.Token, error) {
+func (dls *stdLexlDfaLexerState) NextToken() (parser.Token, error) {
 	if dls.atEof {
 		if !dls.sentEof {
 			dls.sentEof = true
