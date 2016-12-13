@@ -1,0 +1,1124 @@
+<!--
+	Copyright 2009 The Go Authors. All rights reserved.
+	Use of this source code is governed by a BSD-style
+	license that can be found in the LICENSE file.
+-->
+<!--
+	Note: Static (i.e., not template-generated) href and id
+	attributes start with "pkg-" to make it impossible for
+	them to conflict with generated attributes (some of which
+	correspond to Go identifiers).
+-->
+
+	<script type='text/javascript'>
+	document.ANALYSIS_DATA = ;
+	document.CALLGRAPH = ;
+	</script>
+
+	
+		
+		<div id="short-nav">
+			<dl>
+			<dd><code>import "."</code></dd>
+			</dl>
+			<dl>
+			<dd><a href="#pkg-overview" class="overviewLink">Overview</a></dd>
+			<dd><a href="#pkg-index" class="indexLink">Index</a></dd>
+			
+			
+			</dl>
+		</div>
+		<!-- The package's Name is printed as title by the top-level template -->
+		<div id="pkg-overview" class="toggleVisible">
+			<div class="collapsed">
+				<h2 class="toggleButton" title="Click to show Overview section">Overview ▹</h2>
+			</div>
+			<div class="expanded">
+				<h2 class="toggleButton" title="Click to hide Overview section">Overview ▾</h2>
+				
+			</div>
+		</div>
+		
+
+		<div id="pkg-index" class="toggleVisible">
+		<div class="collapsed">
+			<h2 class="toggleButton" title="Click to show Index section">Index ▹</h2>
+		</div>
+		<div class="expanded">
+			<h2 class="toggleButton" title="Click to hide Index section">Index ▾</h2>
+
+		<!-- Table of contents for API; must be named manual-nav to turn off auto nav. -->
+			<div id="manual-nav">
+			<dl>
+			
+			
+			
+				
+				<dd><a href="#DfaToString">func DfaToString(dfa Dfa) string</a></dd>
+			
+				
+				<dd><a href="#GenerateLexl0Grammar">func GenerateLexl0Grammar() parser.Grammar</a></dd>
+			
+				
+				<dd><a href="#GenerateLexlLexerFromDfa">func GenerateLexlLexerFromDfa(dfa Dfa, grammar parser.Grammar) (parser.Lexer, error)</a></dd>
+			
+				
+				<dd><a href="#MatchBlockToString">func MatchBlockToString(block MatchBlock) string</a></dd>
+			
+				
+				<dd><a href="#MatchExprToString">func MatchExprToString(expr MatchExpr) string</a></dd>
+			
+				
+				<dd><a href="#NdfaStateToString">func NdfaStateToString(ndfaState NdfaState) string</a></dd>
+			
+				
+				<dd><a href="#NdfaToString">func NdfaToString(ndfa Ndfa) string</a></dd>
+			
+			
+				
+				<dd><a href="#AlternationExpression">type AlternationExpression</a></dd>
+				
+				
+			
+				
+				<dd><a href="#CharacterClass">type CharacterClass</a></dd>
+				
+					
+					<dd>&nbsp; &nbsp; <a href="#CloneCharacterClass">func CloneCharacterClass(cc CharacterClass) CharacterClass</a></dd>
+				
+				
+			
+				
+				<dd><a href="#CharacterClassExpression">type CharacterClassExpression</a></dd>
+				
+				
+			
+				
+				<dd><a href="#CharacterLiteralExpression">type CharacterLiteralExpression</a></dd>
+				
+				
+			
+				
+				<dd><a href="#CharacterRange">type CharacterRange</a></dd>
+				
+				
+			
+				
+				<dd><a href="#Dfa">type Dfa</a></dd>
+				
+				
+			
+				
+				<dd><a href="#DfaItem">type DfaItem</a></dd>
+				
+				
+					
+					<dd>&nbsp; &nbsp; <a href="#DfaItem.Equals">func (di *DfaItem) Equals(v interface{}) bool</a></dd>
+				
+					
+					<dd>&nbsp; &nbsp; <a href="#DfaItem.HashCode">func (di *DfaItem) HashCode() uint32</a></dd>
+				
+					
+					<dd>&nbsp; &nbsp; <a href="#DfaItem.ToString">func (di *DfaItem) ToString() string</a></dd>
+				
+			
+				
+				<dd><a href="#DfaState">type DfaState</a></dd>
+				
+				
+			
+				
+				<dd><a href="#LexlReader">type LexlReader</a></dd>
+				
+					
+					<dd>&nbsp; &nbsp; <a href="#GetLexlReader">func GetLexlReader(in io.Reader, buflen int) LexlReader</a></dd>
+				
+				
+			
+				
+				<dd><a href="#LexlRepresentation">type LexlRepresentation</a></dd>
+				
+					
+					<dd>&nbsp; &nbsp; <a href="#GenerateLexl0SR">func GenerateLexl0SR() LexlRepresentation</a></dd>
+				
+				
+					
+					<dd>&nbsp; &nbsp; <a href="#LexlRepresentation.ConstructNdfa">func (sr LexlRepresentation) ConstructNdfa() (Ndfa, error)</a></dd>
+				
+			
+				
+				<dd><a href="#MatchBlock">type MatchBlock</a></dd>
+				
+				
+			
+				
+				<dd><a href="#MatchExpr">type MatchExpr</a></dd>
+				
+				
+			
+				
+				<dd><a href="#MatchExprType">type MatchExprType</a></dd>
+				
+				
+			
+				
+				<dd><a href="#MutableCharacterClass">type MutableCharacterClass</a></dd>
+				
+				
+			
+				
+				<dd><a href="#Ndfa">type Ndfa</a></dd>
+				
+				
+			
+				
+				<dd><a href="#NdfaState">type NdfaState</a></dd>
+				
+				
+			
+				
+				<dd><a href="#PlusExpression">type PlusExpression</a></dd>
+				
+				
+			
+				
+				<dd><a href="#QuantifiedExpression">type QuantifiedExpression</a></dd>
+				
+				
+			
+				
+				<dd><a href="#SequenceExpression">type SequenceExpression</a></dd>
+				
+				
+			
+				
+				<dd><a href="#StarExpression">type StarExpression</a></dd>
+				
+				
+			
+				
+				<dd><a href="#Termdef">type Termdef</a></dd>
+				
+				
+			
+			
+			</dl>
+			</div><!-- #manual-nav -->
+
+		
+
+		
+			<h4>Package files</h4>
+			<p>
+			<span style="font-size:90%">
+			
+				<a href="/src/target/alternation.go">alternation.go</a>
+			
+				<a href="/src/target/charclass.go">charclass.go</a>
+			
+				<a href="/src/target/charlit.go">charlit.go</a>
+			
+				<a href="/src/target/fa.go">fa.go</a>
+			
+				<a href="/src/target/interval.go">interval.go</a>
+			
+				<a href="/src/target/lexl.go">lexl.go</a>
+			
+				<a href="/src/target/metagrammar.go">metagrammar.go</a>
+			
+				<a href="/src/target/plus.go">plus.go</a>
+			
+				<a href="/src/target/quantified.go">quantified.go</a>
+			
+				<a href="/src/target/reader.go">reader.go</a>
+			
+				<a href="/src/target/sequence.go">sequence.go</a>
+			
+				<a href="/src/target/simple.go">simple.go</a>
+			
+				<a href="/src/target/star.go">star.go</a>
+			
+			</span>
+			</p>
+		
+		</div><!-- .expanded -->
+		</div><!-- #pkg-index -->
+
+		<div id="pkg-callgraph" class="toggle" style="display: none">
+		<div class="collapsed">
+			<h2 class="toggleButton" title="Click to show Internal Call Graph section">Internal call graph ▹</h2>
+		</div> <!-- .expanded -->
+		<div class="expanded">
+			<h2 class="toggleButton" title="Click to hide Internal Call Graph section">Internal call graph ▾</h2>
+			<p>
+			  In the call graph viewer below, each node
+			  is a function belonging to this package
+			  and its children are the functions it
+			  calls&mdash;perhaps dynamically.
+			</p>
+			<p>
+			  The root nodes are the entry points of the
+			  package: functions that may be called from
+			  outside the package.
+			  There may be non-exported or anonymous
+			  functions among them if they are called
+			  dynamically from another package.
+			</p>
+			<p>
+			  Click a node to visit that function's source code.
+			  From there you can visit its callers by
+			  clicking its declaring <code>func</code>
+			  token.
+			</p>
+			<p>
+			  Functions may be omitted if they were
+			  determined to be unreachable in the
+			  particular programs or tests that were
+			  analyzed.
+			</p>
+			<!-- Zero means show all package entry points. -->
+			<ul style="margin-left: 0.5in" id="callgraph-0" class="treeview"></ul>
+		</div>
+		</div> <!-- #pkg-callgraph -->
+
+		
+		
+		
+			
+			
+			<h2 id="DfaToString">func <a href="/src/target/fa.go?s=28045:28077#L918">DfaToString</a>
+				<a class="permalink" href="#DfaToString">&#xb6;</a>
+			</h2>
+			<pre>func DfaToString(dfa <a href="#Dfa">Dfa</a>) <a href="/pkg/builtin/#string">string</a></pre>
+			<p>
+DfaToString converts an entire Dfa to a human-readable multiline
+string representation.  It is intended for debugging.
+</p>
+
+			
+			
+
+		
+			
+			
+			<h2 id="GenerateLexl0Grammar">func <a href="/src/target/metagrammar.go?s=2573:2615#L164">GenerateLexl0Grammar</a>
+				<a class="permalink" href="#GenerateLexl0Grammar">&#xb6;</a>
+			</h2>
+			<pre>func GenerateLexl0Grammar() <a href="/pkg/github.com/dtromb/parser/">parser</a>.<a href="/pkg/github.com/dtromb/parser/#Grammar">Grammar</a></pre>
+			
+			
+			
+
+		
+			
+			
+			<h2 id="GenerateLexlLexerFromDfa">func <a href="/src/target/lexl.go?s=13094:13178#L406">GenerateLexlLexerFromDfa</a>
+				<a class="permalink" href="#GenerateLexlLexerFromDfa">&#xb6;</a>
+			</h2>
+			<pre>func GenerateLexlLexerFromDfa(dfa <a href="#Dfa">Dfa</a>, grammar <a href="/pkg/github.com/dtromb/parser/">parser</a>.<a href="/pkg/github.com/dtromb/parser/#Grammar">Grammar</a>) (<a href="/pkg/github.com/dtromb/parser/">parser</a>.<a href="/pkg/github.com/dtromb/parser/#Lexer">Lexer</a>, <a href="/pkg/builtin/#error">error</a>)</pre>
+			
+			
+			
+
+		
+			
+			
+			<h2 id="MatchBlockToString">func <a href="/src/target/lexl.go?s=14835:14883#L487">MatchBlockToString</a>
+				<a class="permalink" href="#MatchBlockToString">&#xb6;</a>
+			</h2>
+			<pre>func MatchBlockToString(block <a href="#MatchBlock">MatchBlock</a>) <a href="/pkg/builtin/#string">string</a></pre>
+			
+			
+			
+
+		
+			
+			
+			<h2 id="MatchExprToString">func <a href="/src/target/lexl.go?s=15109:15154#L499">MatchExprToString</a>
+				<a class="permalink" href="#MatchExprToString">&#xb6;</a>
+			</h2>
+			<pre>func MatchExprToString(expr <a href="#MatchExpr">MatchExpr</a>) <a href="/pkg/builtin/#string">string</a></pre>
+			
+			
+			
+
+		
+			
+			
+			<h2 id="NdfaStateToString">func <a href="/src/target/fa.go?s=11088:11138#L325">NdfaStateToString</a>
+				<a class="permalink" href="#NdfaStateToString">&#xb6;</a>
+			</h2>
+			<pre>func NdfaStateToString(ndfaState <a href="#NdfaState">NdfaState</a>) <a href="/pkg/builtin/#string">string</a></pre>
+			<p>
+NdfaStateToString converts a NdfaState to a human-readable multiline
+string representation.  It is intended for debugging.
+</p>
+
+			
+			
+
+		
+			
+			
+			<h2 id="NdfaToString">func <a href="/src/target/fa.go?s=11543:11578#L342">NdfaToString</a>
+				<a class="permalink" href="#NdfaToString">&#xb6;</a>
+			</h2>
+			<pre>func NdfaToString(ndfa <a href="#Ndfa">Ndfa</a>) <a href="/pkg/builtin/#string">string</a></pre>
+			<p>
+NdfaToString converts an entire Ndfa to a human-readable multiline
+string representation.  It is intended for debugging.
+</p>
+
+			
+			
+
+		
+		
+			
+			
+			<h2 id="AlternationExpression">type <a href="/src/target/alternation.go?s=165:292#L1">AlternationExpression</a>
+				<a class="permalink" href="#AlternationExpression">&#xb6;</a>
+			</h2>
+			<pre>type AlternationExpression interface {
+    <a href="#MatchExpr">MatchExpr</a>
+    Isa_AlternationExpression() <a href="/pkg/builtin/#bool">bool</a>
+    NumMatch() <a href="/pkg/builtin/#int">int</a>
+    Match(idx <a href="/pkg/builtin/#int">int</a>) <a href="#MatchExpr">MatchExpr</a>
+}</pre>
+			<p>
+AlternationExpression - Derived interface of MatchExpr - describles a regular subexpression
+with type LexlSequenceAlternation
+</p>
+
+
+			
+
+			
+
+			
+			
+			
+
+			
+
+			
+		
+			
+			
+			<h2 id="CharacterClass">type <a href="/src/target/charclass.go?s=61:158#L1">CharacterClass</a>
+				<a class="permalink" href="#CharacterClass">&#xb6;</a>
+			</h2>
+			<pre>type CharacterClass interface {
+    IsNegated() <a href="/pkg/builtin/#bool">bool</a>
+    Literals() []<a href="/pkg/builtin/#rune">rune</a>
+    Ranges() []<a href="#CharacterRange">CharacterRange</a>
+}</pre>
+			
+
+			
+
+			
+
+			
+			
+			
+
+			
+				
+				<h3 id="CloneCharacterClass">func <a href="/src/target/charclass.go?s=1900:1958#L102">CloneCharacterClass</a>
+					<a class="permalink" href="#CloneCharacterClass">&#xb6;</a>
+				</h3>
+				<pre>func CloneCharacterClass(cc <a href="#CharacterClass">CharacterClass</a>) <a href="#CharacterClass">CharacterClass</a></pre>
+				
+				
+				
+			
+
+			
+		
+			
+			
+			<h2 id="CharacterClassExpression">type <a href="/src/target/charclass.go?s=356:443#L18">CharacterClassExpression</a>
+				<a class="permalink" href="#CharacterClassExpression">&#xb6;</a>
+			</h2>
+			<pre>type CharacterClassExpression interface {
+    <a href="#MatchExpr">MatchExpr</a>
+    CharacterClass() <a href="#CharacterClass">CharacterClass</a>
+}</pre>
+			
+
+			
+
+			
+
+			
+			
+			
+
+			
+
+			
+		
+			
+			
+			<h2 id="CharacterLiteralExpression">type <a href="/src/target/charlit.go?s=182:256#L1">CharacterLiteralExpression</a>
+				<a class="permalink" href="#CharacterLiteralExpression">&#xb6;</a>
+			</h2>
+			<pre>type CharacterLiteralExpression interface {
+    <a href="#MatchExpr">MatchExpr</a>
+    Character() <a href="/pkg/builtin/#rune">rune</a>
+}</pre>
+			<p>
+CharacterLiteralExpression - Derived interface of MatchExpr - describes a regular subexpression
+with type LexlMatchCharacterLiteral
+</p>
+
+
+			
+
+			
+
+			
+			
+			
+
+			
+
+			
+		
+			
+			
+			<h2 id="CharacterRange">type <a href="/src/target/charclass.go?s=160:224#L6">CharacterRange</a>
+				<a class="permalink" href="#CharacterRange">&#xb6;</a>
+			</h2>
+			<pre>type CharacterRange interface {
+    Least() <a href="/pkg/builtin/#rune">rune</a>
+    Greatest() <a href="/pkg/builtin/#rune">rune</a>
+}</pre>
+			
+
+			
+
+			
+
+			
+			
+			
+
+			
+
+			
+		
+			
+			
+			<h2 id="Dfa">type <a href="/src/target/fa.go?s=2484:2883#L55">Dfa</a>
+				<a class="permalink" href="#Dfa">&#xb6;</a>
+			</h2>
+			<pre>type Dfa interface {
+    <span class="comment">// Returns the number of DfaState in the DFA.</span>
+    NumStates() <a href="/pkg/builtin/#int">int</a>
+
+    <span class="comment">// Returns the state with the given index, or nil if the index is out of range.</span>
+    State(idx <a href="/pkg/builtin/#int">int</a>) <a href="#DfaState">DfaState</a>
+
+    <span class="comment">// Returns the number of terminal names referenced by the DFA.</span>
+    NumTerminals() <a href="/pkg/builtin/#int">int</a>
+
+    <span class="comment">// Returns the terminal name with the given index, or empty if the index is out of range.</span>
+    Terminal(idx <a href="/pkg/builtin/#int">int</a>) <a href="/pkg/builtin/#string">string</a>
+}</pre>
+			<p>
+Dfa represents a DFA lexer construction.  It is comprised of a set of
+unique DfaState and is intended for direct use by lexer implementations.
+In a NDFA, state transitions are unique - the next state given a specific
+input is determined, so no backtracing is necessary (unless longest-match
+functionality or backreferences are required).
+</p>
+
+
+			
+
+			
+
+			
+			
+			
+
+			
+
+			
+		
+			
+			
+			<h2 id="DfaItem">type <a href="/src/target/fa.go?s=12294:12794#L372">DfaItem</a>
+				<a class="permalink" href="#DfaItem">&#xb6;</a>
+			</h2>
+			<pre>type DfaItem struct {
+    <span class="comment">// contains filtered or unexported fields</span>
+}</pre>
+			<p>
+DfaItem is an intermediate representation of a DFA state that defined the
+mapping between NDFA states and DFA states.  It may be used to provide debugging
+information to a lexer so that user-friendly error messages may be generated (
+this is curretly unimplemented).
+</p>
+
+
+			
+
+			
+
+			
+			
+			
+
+			
+
+			
+				
+				<h3 id="DfaItem.Equals">func (*DfaItem) <a href="/src/target/fa.go?s=13149:13194#L400">Equals</a>
+					<a class="permalink" href="#DfaItem.Equals">&#xb6;</a>
+				</h3>
+				<pre>func (di *<a href="#DfaItem">DfaItem</a>) Equals(v interface{}) <a href="/pkg/builtin/#bool">bool</a></pre>
+				<p>
+Equals (parser.Hashable)
+</p>
+
+				
+				
+				
+			
+				
+				<h3 id="DfaItem.HashCode">func (*DfaItem) <a href="/src/target/fa.go?s=12826:12862#L384">HashCode</a>
+					<a class="permalink" href="#DfaItem.HashCode">&#xb6;</a>
+				</h3>
+				<pre>func (di *<a href="#DfaItem">DfaItem</a>) HashCode() <a href="/pkg/builtin/#uint32">uint32</a></pre>
+				<p>
+HashCode (parser.Hashable)
+</p>
+
+				
+				
+				
+			
+				
+				<h3 id="DfaItem.ToString">func (*DfaItem) <a href="/src/target/fa.go?s=24181:24217#L793">ToString</a>
+					<a class="permalink" href="#DfaItem.ToString">&#xb6;</a>
+				</h3>
+				<pre>func (di *<a href="#DfaItem">DfaItem</a>) ToString() <a href="/pkg/builtin/#string">string</a></pre>
+				<p>
+ToString (parser.stringable)
+</p>
+
+				
+				
+				
+			
+		
+			
+			
+			<h2 id="DfaState">type <a href="/src/target/fa.go?s=3452:4370#L77">DfaState</a>
+				<a class="permalink" href="#DfaState">&#xb6;</a>
+			</h2>
+			<pre>type DfaState interface {
+
+    <span class="comment">// Returns the ID of this DfaState</span>
+    ID() <a href="/pkg/builtin/#int">int</a>
+
+    <span class="comment">// Returns the number of target intervals this state defines.</span>
+    NumIntervals() <a href="/pkg/builtin/#int">int</a>
+
+    <span class="comment">// Returns the least character matched by the interval with the given index.</span>
+    IntervalLower(idx <a href="/pkg/builtin/#int">int</a>) <a href="/pkg/builtin/#rune">rune</a>
+
+    <span class="comment">// Returns the next state the Dfa will transition into if the interval with the</span>
+    <span class="comment">// given index is used to transition.</span>
+    IntervalTransition(idx <a href="/pkg/builtin/#int">int</a>) <a href="#DfaState">DfaState</a>
+
+    <span class="comment">// Returns true iff this state can transition by emitting a terminal instead of</span>
+    <span class="comment">// conduming a character.</span>
+    CanAccept() <a href="/pkg/builtin/#bool">bool</a>
+
+    <span class="comment">// Returns the dfa code of the terminal and the next DfaState reached by the Dfa</span>
+    <span class="comment">// after an accept transition.</span>
+    AcceptTransition() (<a href="/pkg/builtin/#int">int</a>, <a href="#DfaState">DfaState</a>)
+
+    <span class="comment">// Query the Dfa, returning the next state the Dfa will reach if it transitions</span>
+    <span class="comment">// after consuming the given character, or nil if no transition on this character</span>
+    <span class="comment">// is possible.</span>
+    Query(c <a href="/pkg/builtin/#rune">rune</a>) <a href="#DfaState">DfaState</a>
+}</pre>
+			<p>
+DfaState represents a single state in a lexer DFA construction.  Each
+state has a set of transitions which are represented as intervals.  The
+intervals cover the codepoint space and some accept no inputs in their range.
+These may not overlap and each points to the next state reached if a valid
+input character matching the interval is consumed.  The only actions possible
+are consuming a character matching an interval, or accepting a token for the
+lexer to return without matching a character.  In both cases the next state
+is determined.
+</p>
+
+
+			
+
+			
+
+			
+			
+			
+
+			
+
+			
+		
+			
+			
+			<h2 id="LexlReader">type <a href="/src/target/reader.go?s=65:245#L1">LexlReader</a>
+				<a class="permalink" href="#LexlReader">&#xb6;</a>
+			</h2>
+			<pre>type LexlReader interface {
+    Read(p []<a href="/pkg/builtin/#byte">byte</a>) (n <a href="/pkg/builtin/#int">int</a>, err <a href="/pkg/builtin/#error">error</a>)
+    ReadByte() (<a href="/pkg/builtin/#byte">byte</a>, <a href="/pkg/builtin/#error">error</a>)
+    PeekByte() (<a href="/pkg/builtin/#byte">byte</a>, <a href="/pkg/builtin/#error">error</a>)
+    ReadRune() (<a href="/pkg/builtin/#rune">rune</a>, <a href="/pkg/builtin/#error">error</a>)
+    PeekRune() (<a href="/pkg/builtin/#rune">rune</a>, <a href="/pkg/builtin/#error">error</a>)
+    Eof() <a href="/pkg/builtin/#bool">bool</a>
+}</pre>
+			
+
+			
+
+			
+
+			
+			
+			
+
+			
+				
+				<h3 id="GetLexlReader">func <a href="/src/target/reader.go?s=345:400#L19">GetLexlReader</a>
+					<a class="permalink" href="#GetLexlReader">&#xb6;</a>
+				</h3>
+				<pre>func GetLexlReader(in <a href="/pkg/io/">io</a>.<a href="/pkg/io/#Reader">Reader</a>, buflen <a href="/pkg/builtin/#int">int</a>) <a href="#LexlReader">LexlReader</a></pre>
+				
+				
+				
+			
+
+			
+		
+			
+			
+			<h2 id="LexlRepresentation">type <a href="/src/target/lexl.go?s=2563:2599#L63">LexlRepresentation</a>
+				<a class="permalink" href="#LexlRepresentation">&#xb6;</a>
+			</h2>
+			<pre>type LexlRepresentation []<a href="#MatchBlock">MatchBlock</a></pre>
+			
+
+			
+
+			
+
+			
+			
+			
+
+			
+				
+				<h3 id="GenerateLexl0SR">func <a href="/src/target/metagrammar.go?s=5765:5806#L224">GenerateLexl0SR</a>
+					<a class="permalink" href="#GenerateLexl0SR">&#xb6;</a>
+				</h3>
+				<pre>func GenerateLexl0SR() <a href="#LexlRepresentation">LexlRepresentation</a></pre>
+				
+				
+				
+			
+
+			
+				
+				<h3 id="LexlRepresentation.ConstructNdfa">func (LexlRepresentation) <a href="/src/target/lexl.go?s=5269:5327#L176">ConstructNdfa</a>
+					<a class="permalink" href="#LexlRepresentation.ConstructNdfa">&#xb6;</a>
+				</h3>
+				<pre>func (sr <a href="#LexlRepresentation">LexlRepresentation</a>) ConstructNdfa() (<a href="#Ndfa">Ndfa</a>, <a href="/pkg/builtin/#error">error</a>)</pre>
+				
+				
+				
+				
+			
+		
+			
+			
+			<h2 id="MatchBlock">type <a href="/src/target/lexl.go?s=167:328#L3">MatchBlock</a>
+				<a class="permalink" href="#MatchBlock">&#xb6;</a>
+			</h2>
+			<pre>type MatchBlock interface {
+    Name() <a href="/pkg/builtin/#string">string</a>
+    NumTermdefs() <a href="/pkg/builtin/#int">int</a>
+    Termdef(idx <a href="/pkg/builtin/#int">int</a>) <a href="#Termdef">Termdef</a>
+    NumInclusions() <a href="/pkg/builtin/#int">int</a>
+    Inclusion(idx <a href="/pkg/builtin/#int">int</a>) <a href="#MatchBlock">MatchBlock</a>
+    Ignore() <a href="#MatchExpr">MatchExpr</a>
+}</pre>
+			<p>
+MatchBlock - A semantic representation of a single lexer token recognizer.
+</p>
+
+
+			
+
+			
+
+			
+			
+			
+
+			
+
+			
+		
+			
+			
+			<h2 id="MatchExpr">type <a href="/src/target/lexl.go?s=2511:2561#L59">MatchExpr</a>
+				<a class="permalink" href="#MatchExpr">&#xb6;</a>
+			</h2>
+			<pre>type MatchExpr interface {
+    Type() <a href="#MatchExprType">MatchExprType</a>
+}</pre>
+			<p>
+MatchExpr - Abstract base interface representing a lexl regular expression.  Implementing structs
+may also implement at most one of the derived interfaces {CharacterLiteralExpression, SequenceExpression, etc}.
+</p>
+
+
+			
+
+			
+
+			
+			
+			
+
+			
+
+			
+		
+			
+			
+			<h2 id="MatchExprType">type <a href="/src/target/lexl.go?s=701:723#L23">MatchExprType</a>
+				<a class="permalink" href="#MatchExprType">&#xb6;</a>
+			</h2>
+			<pre>type MatchExprType <a href="/pkg/builtin/#int">int</a></pre>
+			<p>
+MatchExprType - Enumeration describing the kinds of lexl regular subexpressions.
+</p>
+
+
+			
+				<pre>const (
+    <span class="comment">// LexlMatchNever never matches.</span>
+    <span id="LexlMatchNever">LexlMatchNever</span> <a href="#MatchExprType">MatchExprType</a> = <a href="/pkg/builtin/#iota">iota</a>
+    <span class="comment">// LexlMatchAlways always matches.</span>
+    <span id="LexlMatchAlways">LexlMatchAlways</span>
+    <span class="comment">// LexlMatchCharacterLiteral matches iff the next character is a specified literal character.</span>
+    <span id="LexlMatchCharacterLiteral">LexlMatchCharacterLiteral</span>
+    <span class="comment">// LexlMatchStart matches iff the lexer is at the start-of-stream position.</span>
+    <span id="LexlMatchStart">LexlMatchStart</span>
+    <span class="comment">// LexlMatchEnd matches iff the lexer is at the end-of-stream position</span>
+    <span id="LexlMatchEnd">LexlMatchEnd</span>
+    <span class="comment">// LexlMatchSubmatch matches iff the specified submatch matches.  It generates a capturing group which</span>
+    <span class="comment">// may be later accessed through the recognized token representation.</span>
+    <span id="LexlMatchSubmatch">LexlMatchSubmatch</span>
+    <span class="comment">// LexlMatchOptional always matches, consuming the input of a specified submatch if that submatch matches.</span>
+    <span id="LexlMatchOptional">LexlMatchOptional</span>
+    <span class="comment">// LexlMatchStar always matches, consuming the maximum sequence of repeated inputs to the specified</span>
+    <span class="comment">// submatch, as long as it continues to match.</span>
+    <span id="LexlMatchStar">LexlMatchStar</span>
+    <span class="comment">// LexlMatchPlus matches iff the specified submatch matches at least once.  It consumes input</span>
+    <span class="comment">// corresponding to the maximum number of repeated submatches.</span>
+    <span id="LexlMatchPlus">LexlMatchPlus</span>
+    <span class="comment">// LexlMatchQuantified matches iff a specified number (or range) of matches of a specified submatch succeed.</span>
+    <span id="LexlMatchQuantified">LexlMatchQuantified</span>
+    <span class="comment">// LexlMatchCharset matches iff the next character is in the specified character subset.</span>
+    <span id="LexlMatchCharset">LexlMatchCharset</span>
+    <span class="comment">// LexlMatchSequence matches iff all of the child submatches match the current input, in order.</span>
+    <span id="LexlMatchSequence">LexlMatchSequence</span>
+    <span class="comment">// LexlMatchAlternation matches iff exactly one of the child submatches match the current input.</span>
+    <span id="LexlMatchAlternation">LexlMatchAlternation</span>
+)</pre>
+				
+			
+
+			
+
+			
+			
+			
+
+			
+
+			
+		
+			
+			
+			<h2 id="MutableCharacterClass">type <a href="/src/target/charclass.go?s=226:354#L11">MutableCharacterClass</a>
+				<a class="permalink" href="#MutableCharacterClass">&#xb6;</a>
+			</h2>
+			<pre>type MutableCharacterClass interface {
+    <a href="#CharacterClass">CharacterClass</a>
+    Negate()
+    AddCharacter(<a href="/pkg/builtin/#rune">rune</a>) <a href="/pkg/builtin/#bool">bool</a>
+    AddRange(least, greatest <a href="/pkg/builtin/#rune">rune</a>) <a href="/pkg/builtin/#bool">bool</a>
+}</pre>
+			
+
+			
+
+			
+
+			
+			
+			
+
+			
+
+			
+		
+			
+			
+			<h2 id="Ndfa">type <a href="/src/target/fa.go?s=329:604#L3">Ndfa</a>
+				<a class="permalink" href="#Ndfa">&#xb6;</a>
+			</h2>
+			<pre>type Ndfa interface {
+    <span class="comment">// Returns the number of NdfaState in this Ndfa.</span>
+    NumStates() <a href="/pkg/builtin/#int">int</a>
+
+    <span class="comment">// Returns the given state of the Ndfa, or nil if the index is out of range.</span>
+    State(idx <a href="/pkg/builtin/#int">int</a>) <a href="#NdfaState">NdfaState</a>
+
+    <span class="comment">// Attempt to transform the NDFA to a DFA.</span>
+    TransformToDfa() (<a href="#Dfa">Dfa</a>, <a href="/pkg/builtin/#error">error</a>)
+}</pre>
+			<p>
+Ndfa represents an NDFA lexer construction.  It is comprised of a set of
+unique NdfaState and its primary use is to construct the lexer DFA.   In
+an NDFA, state transitions are not necessarily unique, so direct users must
+either backtrace or maintain a state tree.
+</p>
+
+
+			
+
+			
+
+			
+			
+			
+
+			
+
+			
+		
+			
+			
+			<h2 id="NdfaState">type <a href="/src/target/fa.go?s=992:2125#L19">NdfaState</a>
+				<a class="permalink" href="#NdfaState">&#xb6;</a>
+			</h2>
+			<pre>type NdfaState interface {
+
+    <span class="comment">// Returns the ID of this NdfaState</span>
+    ID() <a href="/pkg/builtin/#int">int</a>
+
+    <span class="comment">// Returns a slice of literal characters this state may consume.</span>
+    Literals() []<a href="/pkg/builtin/#rune">rune</a>
+
+    <span class="comment">// Returns a slice of CharacterRange representing characters this state may consume.</span>
+    Ranges() []<a href="#CharacterRange">CharacterRange</a>
+
+    <span class="comment">// Returns a slice of NdfaState the Ndfa may transition into from this state through</span>
+    <span class="comment">// a transition consuming a character returned by Literals().</span>
+    LiteralTransitions(c <a href="/pkg/builtin/#rune">rune</a>) []<a href="#NdfaState">NdfaState</a>
+
+    <span class="comment">// Returns a slice of NdfaState the Ndfa may transition into from this state through</span>
+    <span class="comment">// a transition consuming a character in a CharacterRange returned by Ranges().</span>
+    RangeTransitions(r <a href="#CharacterRange">CharacterRange</a>) []<a href="#NdfaState">NdfaState</a>
+
+    <span class="comment">// Returns a slice of NdfaState the Ndfa may transition into from this state</span>
+    <span class="comment">// without consuming any characters.</span>
+    EpsilonTransitions() []<a href="#NdfaState">NdfaState</a>
+
+    <span class="comment">// Queries the NdfaState, returning a set of NdfaState the Ndfa may transition into</span>
+    <span class="comment">// from this state after consuming the given character (through a literal or range transition).</span>
+    Query(c <a href="/pkg/builtin/#rune">rune</a>) []<a href="#NdfaState">NdfaState</a>
+}</pre>
+			<p>
+NdfaState represents a single state in a lexer NDFA construction.  Each
+state has a set of transitions which may either be character literals or
+character ranges.  These may overlap and each point to a possible next state
+if a valid input character matching the transition is consumed.  In addition,
+it may have epsilon transitions which do not consume any characters.
+</p>
+
+
+			
+
+			
+
+			
+			
+			
+
+			
+
+			
+		
+			
+			
+			<h2 id="PlusExpression">type <a href="/src/target/plus.go?s=148:289#L1">PlusExpression</a>
+				<a class="permalink" href="#PlusExpression">&#xb6;</a>
+			</h2>
+			<pre>type PlusExpression interface {
+    <a href="#MatchExpr">MatchExpr</a>
+    Isa_PlusExpression() <a href="/pkg/builtin/#bool">bool</a> <span class="comment">// returns true, dismbiguates derived interface</span>
+    Submatch() <a href="#MatchExpr">MatchExpr</a>
+}</pre>
+			<p>
+PlusExpression - Derived interface of MatchExpr - describes a regular subexpression
+with type LexlMatchPlus.
+</p>
+
+
+			
+
+			
+
+			
+			
+			
+
+			
+
+			
+		
+			
+			
+			<h2 id="QuantifiedExpression">type <a href="/src/target/quantified.go?s=33:180#L1">QuantifiedExpression</a>
+				<a class="permalink" href="#QuantifiedExpression">&#xb6;</a>
+			</h2>
+			<pre>type QuantifiedExpression interface {
+    <a href="#MatchExpr">MatchExpr</a>
+    LowerCount() <a href="/pkg/builtin/#int">int</a>
+    UpperCount() <a href="/pkg/builtin/#int">int</a>
+    LowerVaradic() <a href="/pkg/builtin/#bool">bool</a>
+    UpperVaradic() <a href="/pkg/builtin/#bool">bool</a>
+    Match() <a href="#MatchExpr">MatchExpr</a>
+}</pre>
+			
+
+			
+
+			
+
+			
+			
+			
+
+			
+
+			
+		
+			
+			
+			<h2 id="SequenceExpression">type <a href="/src/target/sequence.go?s=161:282#L1">SequenceExpression</a>
+				<a class="permalink" href="#SequenceExpression">&#xb6;</a>
+			</h2>
+			<pre>type SequenceExpression interface {
+    <a href="#MatchExpr">MatchExpr</a>
+    Isa_SequenceExpression() <a href="/pkg/builtin/#bool">bool</a>
+    NumMatch() <a href="/pkg/builtin/#int">int</a>
+    Match(idx <a href="/pkg/builtin/#int">int</a>) <a href="#MatchExpr">MatchExpr</a>
+}</pre>
+			<p>
+SequenceExpression - Derived interface of MatchExpr - describles a regular subexpression
+with type LexlSequenceExpression
+</p>
+
+
+			
+
+			
+
+			
+			
+			
+
+			
+
+			
+		
+			
+			
+			<h2 id="StarExpression">type <a href="/src/target/star.go?s=148:289#L1">StarExpression</a>
+				<a class="permalink" href="#StarExpression">&#xb6;</a>
+			</h2>
+			<pre>type StarExpression interface {
+    <a href="#MatchExpr">MatchExpr</a>
+    Isa_StarExpression() <a href="/pkg/builtin/#bool">bool</a> <span class="comment">// returns true, dismbiguates derived interface</span>
+    Submatch() <a href="#MatchExpr">MatchExpr</a>
+}</pre>
+			<p>
+StarExpression - Derived interface of MatchExpr - describes a regular subexpression
+with type LexlMatchStar.
+</p>
+
+
+			
+
+			
+
+			
+			
+			
+
+			
+
+			
+		
+			
+			
+			<h2 id="Termdef">type <a href="/src/target/lexl.go?s=486:615#L14">Termdef</a>
+				<a class="permalink" href="#Termdef">&#xb6;</a>
+			</h2>
+			<pre>type Termdef interface {
+    Name() <a href="/pkg/builtin/#string">string</a>
+    Block() <a href="#MatchBlock">MatchBlock</a>
+    NextBlock() <a href="#MatchBlock">MatchBlock</a>
+    NextBlockDefault() <a href="/pkg/builtin/#bool">bool</a>
+    Match() <a href="#MatchExpr">MatchExpr</a>
+}</pre>
+			<p>
+Termdef - A semantic representation of a single lexer token recognizer option,
+consisting of a lexl regular expression and its next recognizer state.
+</p>
+
+
+			
+
+			
+
+			
+			
+			
+
+			
+
+			
+		
+	
+
+	
+
+
+
+
+

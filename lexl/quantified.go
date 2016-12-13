@@ -62,7 +62,7 @@ func (qe *stdLexlQuantifiedExpression) Match() MatchExpr {
 	return qe.submatch
 }
 
-func (ae *stdLexlQuantifiedExpression) GenerateNdfaStates() (states []*stdLexlNdfaState, err error) {
+func (ae *stdLexlQuantifiedExpression) GenerateNdfaStates() (states []*stdNdfaState, err error) {
 	fmt.Println("QUANTIFIED")
 	var lower int
 	if ae.lower < 0 {
@@ -83,9 +83,9 @@ func (ae *stdLexlQuantifiedExpression) GenerateNdfaStates() (states []*stdLexlNd
 	if err != nil {
 		return nil, err
 	}
-	var res []*stdLexlNdfaState
-	var accept []*stdLexlNdfaState
-	var lastInit *stdLexlNdfaState
+	var res []*stdNdfaState
+	var accept []*stdNdfaState
+	var lastInit *stdNdfaState
 	for i := 0; i < lower; i++ {
 		newStates, err := cloneNdfaStates(submatchStates)
 		if err != nil {
@@ -110,8 +110,8 @@ func (ae *stdLexlQuantifiedExpression) GenerateNdfaStates() (states []*stdLexlNd
 	}
 	if upper < 0 {
 		if len(res) == 0 {
-			res = []*stdLexlNdfaState{&stdLexlNdfaState{accepting: true}}
-			accept = []*stdLexlNdfaState{res[0]}
+			res = []*stdNdfaState{&stdNdfaState{accepting: true}}
+			accept = []*stdNdfaState{res[0]}
 			lastInit = res[0]
 		}
 		for _, st := range accept {

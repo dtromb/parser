@@ -32,7 +32,7 @@ func TestLexlLexer(t *testing.T) {
 	for _, block := range lexlL0sr {
 		fmt.Println(MatchBlockToString(block))
 	}
-	ndfa, err := lexlL0sr.ConstructLexlNdfa()
+	ndfa, err := lexlL0sr.ConstructNdfa()
 	if err != nil {
 		t.Error(err)
 		return

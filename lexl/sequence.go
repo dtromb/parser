@@ -37,10 +37,10 @@ func (se *stdLexlSequenceExpression) NumMatch() int {
 	return len(se.matches)
 }
 
-func (se *stdLexlSequenceExpression) GenerateNdfaStates() ([]*stdLexlNdfaState, error) {
+func (se *stdLexlSequenceExpression) GenerateNdfaStates() ([]*stdNdfaState, error) {
 	fmt.Println("SEQUENCE")
-	var res []*stdLexlNdfaState
-	acceptPoints := make([]*stdLexlNdfaState, 0, 16)
+	var res []*stdNdfaState
+	acceptPoints := make([]*stdNdfaState, 0, 16)
 	for i, subStateIf := range se.matches {
 		subState, ok := subStateIf.(ndfaStateGenerator)
 		if !ok {

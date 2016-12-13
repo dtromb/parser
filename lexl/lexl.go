@@ -83,15 +83,16 @@ type stdLexlMatchBlock struct {
 
 type stdLexlTermdef struct {
 	terminalName string
+	index		 int
 	defBlock     *stdLexlMatchBlock
 	fwdBlock     *stdLexlMatchBlock
 	expr         MatchExpr
 }
 
-type lexlDfaState interface {
-	Id() uint32
-	Transition(c byte) (*lexlDfaState, bool)
-}
+//type DfaState interface {
+//	Id() uint32
+//	Transition(c byte) (*DfaState, bool)
+//}
 
 func (se *stdLexlSequenceExpression) Match(idx int) MatchExpr {
 	if idx < 0 || idx >= len(se.matches) {
@@ -182,10 +183,10 @@ func cloneMatchBlock(mb MatchBlock) (MatchBlock, error) {
 	return nil, errors.New("cloneMatchBlock() unimplemented")
 }
 
-func (sr LexlRepresentation) ConstructLexlNdfa() (LexlNdfa, error) {
+func (sr LexlRepresentation) ConstructNdfa() (Ndfa, error) {
 	blockIndex := make(map[string]int)
-	blockStateIndex := make([]map[string]*stdLexlNdfaState, 0, len(sr))
-	blockStates := make([][][]*stdLexlNdfaState, len(sr))
+	blockStateIndex := make([]map[string]*stdNdfaState, 0, len(sr))
+	blockStates := make([][][]*stdNdfaState, len(sr))
 	// Index the blocks by name so that we can map MatchBlock to their
 	// corresponding state sets as we build the NDFA.
 	for blockIdx, block := range sr {
@@ -194,8 +195,8 @@ func (sr LexlRepresentation) ConstructLexlNdfa() (LexlNdfa, error) {
 	// Iterate the terms in each block and generate the expression subgraphs
 	// for those terms.
 	for blockIdx, block := range sr {
-		blockStateIndex = append(blockStateIndex, make(map[string]*stdLexlNdfaState))
-		blockStates[blockIdx] = make([][]*stdLexlNdfaState, block.NumTermdefs())
+		blockStateIndex = append(blockStateIndex, make(map[string]*stdNdfaState))
+		blockStates[blockIdx] = make([][]*stdNdfaState, block.NumTermdefs())
 		for termIdx := 0; termIdx < block.NumTermdefs(); termIdx++ {
 			termdef := block.Termdef(termIdx)
 			termdefExpr := termdef.Match()
@@ -214,13 +215,16 @@ func (sr LexlRepresentation) ConstructLexlNdfa() (LexlNdfa, error) {
 			if err != nil {
 				return nil, err
 			}
+			for _, st := range termdefStates {
+				st.termdefIndex = termIdx
+			}
 			blockStateIndex[blockIdx][termdef.Name()] = termdefStates[0]
 			// Store the terminal we can accept in the accepting states -
 			// the post-accept state may not yet exist, however.
 			for i := len(termdefStates) - 1; i >= 0; i-- {
 				if termdefStates[i].accepting {
 					if termdefStates[i].acceptTransitions == nil {
-						termdefStates[i].acceptTransitions = make(map[string]*stdLexlNdfaState)
+						termdefStates[i].acceptTransitions = make(map[string]*stdNdfaState)
 					}
 					termdefStates[i].acceptTransitions[termdef.Name()] = nil
 				} else {
@@ -236,10 +240,11 @@ func (sr LexlRepresentation) ConstructLexlNdfa() (LexlNdfa, error) {
 	}
 	fmt.Println("CLOSE")
 	// Compute the inclusion closure of each block.
-	closureAdds := make([][][]*stdLexlNdfaState, len(sr))
+	closureAdds := make([][][]*stdNdfaState, len(sr))
 	includes := make([]map[string]bool, len(sr))
 	for blockIdx, block := range sr {
 		fmt.Printf("BLOCKIDX %d\n", blockIdx)
+		indexOffset := len(blockStates[blockIdx])
 		inclusions := make(map[string]bool)
 		next := make(map[string]bool)
 		next[block.Name()] = true
@@ -264,7 +269,7 @@ func (sr LexlRepresentation) ConstructLexlNdfa() (LexlNdfa, error) {
 					fmt.Printf("Will add {%s} to {%s}\n", name, block.Name())
 					for termIdx, termStates := range blockStates[inclIdx] {
 						fmt.Printf("termIdx = %d\n", termIdx)
-
+						
 						term := sr[inclIdx].Termdef(termIdx)
 						// Allow locally-defined terms to override the inclusions.
 						if _, has := blockStateIndex[blockIdx][term.Name()]; has {
@@ -275,13 +280,15 @@ func (sr LexlRepresentation) ConstructLexlNdfa() (LexlNdfa, error) {
 						if err != nil {
 							return nil, err
 						}
-
+						indexOffset++
+						for _, st := range nStates {
+							st.termdefIndex = indexOffset
+						}
 						if term.NextBlockDefault() {
 							nStates[0].id = blockIdx
 						} else {
 							nStates[0].id = blockIndex[term.NextBlock().Name()]
 						}
-
 						closureAdds[blockIdx] = append(closureAdds[blockIdx], nStates)
 					}
 				}
@@ -305,10 +312,10 @@ func (sr LexlRepresentation) ConstructLexlNdfa() (LexlNdfa, error) {
 	// Alternate the states in each term under a block entry point.  Add the ignore
 	// expression into the graph if it exists, with an epsilon transition back to the
 	// block head.
-	var extraIgnoreStates []*stdLexlNdfaState
-	blockHeads := make([]*stdLexlNdfaState, len(sr))
+	var extraIgnoreStates []*stdNdfaState
+	blockHeads := make([]*stdNdfaState, len(sr))
 	for blockIdx, blockState := range blockStates {
-		blockHeads[blockIdx] = newStdLexlNdfaState()
+		blockHeads[blockIdx] = newStdNdfaState()
 		for _, termStates := range blockState {
 			blockHeads[blockIdx].epsilons = append(blockHeads[blockIdx].epsilons, termStates[0])
 		}
@@ -379,7 +386,7 @@ func (sr LexlRepresentation) ConstructLexlNdfa() (LexlNdfa, error) {
 		}
 	}
 
-	var res []*stdLexlNdfaState
+	var res []*stdNdfaState
 	// Arrange all of the states into a linear array and set their unique ids.
 	// The first block in the representation list is at index zero and is the
 	// entry point for the lexer NDFA.
@@ -403,29 +410,29 @@ func (sr LexlRepresentation) ConstructLexlNdfa() (LexlNdfa, error) {
 		res = append(res, st)
 	}
 	// Return the result.
-	return &stdLexlNdfa{states: res}, nil
+	return &stdNdfa{states: res}, nil
 }
 
-func GenerateLexlLexerFromDfa(dfa LexlDfa, grammar parser.Grammar) (parser.Lexer, error) {
-	stdDfa, ok := dfa.(*stdLexlDfa)
+func GenerateLexlLexerFromDfa(dfa Dfa, grammar parser.Grammar) (parser.Lexer, error) {
+	sdfa, ok := dfa.(*stdDfa)
 	if !ok {
-		stdDfaIf, err := cloneDfa(stdDfa)
+		stdDfaIf, err := cloneDfa(sdfa)
 		if err != nil {
 			return nil, err
 		}
-		stdDfa = stdDfaIf.(*stdLexlDfa)
+		sdfa = stdDfaIf.(*stdDfa)
 	}
-	return stdDfa.GenerateLexer(grammar)
+	return sdfa.GenerateLexer(grammar)
 }
 
-type stdLexlDfaLexer struct {
+type stdDfaLexer struct {
 	grammar   parser.Grammar
-	dfa       *stdLexlDfa
+	dfa       *stdDfa
 	terminals []parser.Term
 }
 
-type stdLexlDfaLexerState struct {
-	lexer        *stdLexlDfaLexer
+type stdDfaLexerState struct {
+	lexer        *stdDfaLexer
 	in           LexlReader
 	line         int
 	markLine     int
@@ -439,7 +446,7 @@ type stdLexlDfaLexerState struct {
 	llinelen     int
 }
 
-func (dfa *stdLexlDfa) GenerateLexer(grammar parser.Grammar) (parser.Lexer, error) {
+func (dfa *stdDfa) GenerateLexer(grammar parser.Grammar) (parser.Lexer, error) {
 	g := parser.GetIndexedGrammar(grammar)
 	termIndexIf, err := g.GetIndex(parser.GrammarIndexTypeTerm)
 	if err != nil {
@@ -449,7 +456,7 @@ func (dfa *stdLexlDfa) GenerateLexer(grammar parser.Grammar) (parser.Lexer, erro
 	for _, tn := range termIndex.GetTerminalNames() {
 		fmt.Println(" * " + tn)
 	}
-	lexer := &stdLexlDfaLexer{
+	lexer := &stdDfaLexer{
 		grammar:   grammar,
 		dfa:       dfa,
 		terminals: make([]parser.Term, len(dfa.terminals)),
@@ -464,17 +471,17 @@ func (dfa *stdLexlDfa) GenerateLexer(grammar parser.Grammar) (parser.Lexer, erro
 	return lexer, nil
 }
 
-func (ldl *stdLexlDfaLexer) Grammar() parser.Grammar {
+func (ldl *stdDfaLexer) Grammar() parser.Grammar {
 	return ldl.grammar
 }
 
-func (ldl *stdLexlDfaLexer) Open(in io.Reader) (parser.LexerState, error) {
+func (ldl *stdDfaLexer) Open(in io.Reader) (parser.LexerState, error) {
 	var reader LexlReader
 	var ok bool
 	if reader, ok = in.(LexlReader); !ok {
 		reader = GetLexlReader(in, 256)
 	}
-	return &stdLexlDfaLexerState{
+	return &stdDfaLexerState{
 		lexer:        ldl,
 		in:           reader,
 		line:         1,
@@ -511,20 +518,20 @@ func MatchExprToString(expr MatchExpr) string {
 	}
 }
 
-func (dls *stdLexlDfaLexerState) Lexer() parser.Lexer {
+func (dls *stdDfaLexerState) Lexer() parser.Lexer {
 	return dls.lexer
 }
 
-func (dls *stdLexlDfaLexerState) Reader() io.Reader {
+func (dls *stdDfaLexerState) Reader() io.Reader {
 	return dls.in
 }
 
-func (dls *stdLexlDfaLexerState) HasMoreTokens() (bool, error) {
+func (dls *stdDfaLexerState) HasMoreTokens() (bool, error) {
 	return !dls.in.Eof() || !dls.sentEof, nil
 }
 
 type stdLexlToken struct {
-	lexer    *stdLexlDfaLexerState
+	lexer    *stdDfaLexerState
 	terminal parser.Term
 	literal  string
 	fpos     int
@@ -535,7 +542,7 @@ type stdLexlToken struct {
 	lcol     int
 }
 
-func (dls *stdLexlDfaLexerState) makeToken(terminal parser.Term, literal string) parser.Token {
+func (dls *stdDfaLexerState) makeToken(terminal parser.Term, literal string) parser.Token {
 	tok := &stdLexlToken{
 		lexer:    dls,
 		terminal: terminal,
@@ -595,7 +602,7 @@ func (lt *stdLexlToken) Literal() string {
 	return lt.literal
 }
 
-func (dls *stdLexlDfaLexerState) NextToken() (parser.Token, error) {
+func (dls *stdDfaLexerState) NextToken() (parser.Token, error) {
 	if dls.atEof {
 		if !dls.sentEof {
 			dls.sentEof = true
@@ -625,7 +632,7 @@ func (dls *stdLexlDfaLexerState) NextToken() (parser.Token, error) {
 			}
 			fmt.Println("ACCEPT")
 			termId, nxt := cs.AcceptTransition()
-			dls.currentState = nxt.Id()
+			dls.currentState = nxt.ID()
 			return dls.makeToken(dls.lexer.terminals[termId], string(literal)), nil
 		}
 		dls.in.ReadRune()
@@ -642,14 +649,14 @@ func (dls *stdLexlDfaLexerState) NextToken() (parser.Token, error) {
 	}
 }
 
-func (dls *stdLexlDfaLexerState) CurrentLine() int {
+func (dls *stdDfaLexerState) CurrentLine() int {
 	return dls.line
 }
 
-func (dls *stdLexlDfaLexerState) CurrentColumn() int {
+func (dls *stdDfaLexerState) CurrentColumn() int {
 	return dls.column
 }
 
-func (dls *stdLexlDfaLexerState) CurrentPosition() int {
+func (dls *stdDfaLexerState) CurrentPosition() int {
 	return dls.pos
 }

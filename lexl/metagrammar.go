@@ -658,8 +658,9 @@ func GenerateLexl0SR() LexlRepresentation {
 	for _, b := range blocks {
 		block := b.(*stdLexlMatchBlock)
 		blocksByName[b.Name()] = block
-		for _, td := range block.termdefs {
+		for i, td := range block.termdefs {
 			td.defBlock = block
+			td.index = i
 			// td.fwdBlock = block
 			termdefIndex[b.Name()+"/"+td.terminalName] = td
 		}

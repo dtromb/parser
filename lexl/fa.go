@@ -6,146 +6,226 @@ import (
 	"sort"
 )
 
-type LexlNdfa interface {
+// Ndfa represents an NDFA lexer construction.  It is comprised of a set of 
+// unique NdfaState and its primary use is to construct the lexer DFA.   In
+// an NDFA, state transitions are not necessarily unique, so direct users must
+// either backtrace or maintain a state tree.
+type Ndfa interface {
+	// Returns the number of NdfaState in this Ndfa.
 	NumStates() int
-	State(idx int) LexlNdfaState
-	TransformToDfa() (LexlDfa, error)
+	
+	// Returns the given state of the Ndfa, or nil if the index is out of range.
+	State(idx int) NdfaState
+	
+	// Attempt to transform the NDFA to a DFA.  
+	TransformToDfa() (Dfa, error)
 }
 
-type LexlNdfaState interface {
-	Id() int
+// NdfaState represents a single state in a lexer NDFA construction.  Each
+// state has a set of transitions which may either be character literals or 
+// character ranges.  These may overlap and each point to a possible next state 
+// if a valid input character matching the transition is consumed.  In addition,
+// it may have epsilon transitions which do not consume any characters.
+type NdfaState interface {
+	
+	// Returns the ID of this NdfaState
+	ID() int
+	
+	// Returns a slice of literal characters this state may consume.
 	Literals() []rune
+	
+	// Returns a slice of CharacterRange representing characters this state may consume.
 	Ranges() []CharacterRange
-	LiteralTransitions(c rune) []LexlNdfaState
-	RangeTransitions(r CharacterRange) []LexlNdfaState
-	EpsilonTransitions() []LexlNdfaState
-	Query(c rune) []LexlNdfaState
+	
+	// Returns a slice of NdfaState the Ndfa may transition into from this state through
+	// a transition consuming a character returned by Literals().
+	LiteralTransitions(c rune) []NdfaState
+	
+	// Returns a slice of NdfaState the Ndfa may transition into from this state through
+	// a transition consuming a character in a CharacterRange returned by Ranges().
+	RangeTransitions(r CharacterRange) []NdfaState
+	
+	// Returns a slice of NdfaState the Ndfa may transition into from this state
+	// without consuming any characters.
+	EpsilonTransitions() []NdfaState
+	
+	// Queries the NdfaState, returning a set of NdfaState the Ndfa may transition into
+	// from this state after consuming the given character (through a literal or range transition).
+	Query(c rune) []NdfaState
+	
+	// CanAccept() bool UNIMPLEMENTED
+	// AcceptTerms() []parser.Term UNIMPLEMENTED
 }
 
-type LexlDfa interface {
+// Dfa represents a DFA lexer construction.  It is comprised of a set of 
+// unique DfaState and is intended for direct use by lexer implementations.   
+// In a NDFA, state transitions are unique - the next state given a specific
+// input is determined, so no backtracing is necessary (unless longest-match
+// functionality or backreferences are required).
+type Dfa interface {
+	// Returns the number of DfaState in the DFA.
 	NumStates() int
-	State(idx int) LexlDfaState
+	
+	// Returns the state with the given index, or nil if the index is out of range.
+	State(idx int) DfaState
+	
+	// Returns the number of terminal names referenced by the DFA.
 	NumTerminals() int
+	
+	// Returns the terminal name with the given index, or empty if the index is out of range.
 	Terminal(idx int) string
 }
 
-type LexlDfaState interface {
-	Id() int
+// DfaState represents a single state in a lexer DFA construction.  Each
+// state has a set of transitions which are represented as intervals.  The 
+// intervals cover the codepoint space and some accept no inputs in their range.
+// These may not overlap and each points to the next state reached if a valid 
+// input character matching the interval is consumed.  The only actions possible
+// are consuming a character matching an interval, or accepting a token for the
+// lexer to return without matching a character.  In both cases the next state
+// is determined.
+type DfaState interface {
+	
+	// Returns the ID of this DfaState
+	ID() int
+	
+	// Returns the number of target intervals this state defines.
 	NumIntervals() int
+	
+	// Returns the least character matched by the interval with the given index.
 	IntervalLower(idx int) rune
-	IntervalTransition(idx int) LexlDfaState
+	
+	// Returns the next state the Dfa will transition into if the interval with the 
+	// given index is used to transition.
+	IntervalTransition(idx int) DfaState
+	
+	// Returns true iff this state can transition by emitting a terminal instead of 
+	// conduming a character.
 	CanAccept() bool
-	AcceptTransition() (int, LexlDfaState)
-	Query(c rune) LexlDfaState
+	
+	// Returns the dfa code of the terminal and the next DfaState reached by the Dfa
+	// after an accept transition.
+	AcceptTransition() (int, DfaState)
+	
+	// Query the Dfa, returning the next state the Dfa will reach if it transitions
+	// after consuming the given character, or nil if no transition on this character
+	// is possible.
+	Query(c rune) DfaState
 }
 
 ///
 
+
+// Interface semantic representations of match items must implement to generate their states.
 type ndfaStateGenerator interface {
-	GenerateNdfaStates() ([]*stdLexlNdfaState, error)
+	GenerateNdfaStates() ([]*stdNdfaState, error)
 }
 
-type stdLexlDfa struct {
-	dfa       []stdLexlDfaState
-	terminals []string
+type stdDfa struct {
+	dfa       []stdDfaState			// Slice of all states, state.id indexed
+	terminals []string				// Slice of all terminal names, indexed by their dfa code
 }
 
-type stdLexlNdfa struct {
-	states []*stdLexlNdfaState
+type stdNdfa struct {
+	states []*stdNdfaState			// Slice of all states
 }
 
-type stdLexlNdfaState struct {
-	id                int
-	accepting         bool
-	literals          map[rune][]*stdLexlNdfaState
-	ranges            map[CharacterRange][]*stdLexlNdfaState
-	epsilons          []*stdLexlNdfaState
-	acceptTransitions map[string]*stdLexlNdfaState
+type stdNdfaState struct {
+	id                int			// State number
+	termdefIndex	  int			// The linear lexical ID of the termdef that generated the state.
+	accepting         bool			// True iff a terminal can be accepted here.
+	literals          map[rune][]*stdNdfaState				// single-character transitions
+	ranges            map[CharacterRange][]*stdNdfaState	// character-range transition
+	epsilons          []*stdNdfaState						// epsilon transitions
+	acceptTransitions map[string]*stdNdfaState	// accepted terminal -> next state map.
 }
 
 type dfaTarget struct {
-	c      rune
-	accept int // XXX - remove this.   accepting terminals is a function of the dfa state -
-	// these targets only define transitions where a character is consumed.
-	openGroup  int
-	closeGroup int
-	nxt        *stdLexlDfaState
+	c      rune				// The least character in this target interval.
+	openGroup  int			// Currently unused
+	closeGroup int			// Currently unused
+	nxt        *stdDfaState // The next state to transition to.
 }
 
 type dfaTargetList []dfaTarget
 
-type stdLexlDfaState struct {
-	id        int
-	accept    int
-	acceptNxt *stdLexlDfaState
-	targets   dfaTargetList
+type stdDfaState struct {
+	id        int			// The state id
+	accept    int			// True iff the state may accept a terminal
+	acceptNxt *stdDfaState	// The next state reached on accepting a terminal
+	targets   dfaTargetList	// sort.Interface sortable list of transition target intervals
 }
 
-func newStdLexlNdfaState() *stdLexlNdfaState {
-	return &stdLexlNdfaState{
-		literals: make(map[rune][]*stdLexlNdfaState),
-		ranges:   make(map[CharacterRange][]*stdLexlNdfaState),
+func newStdNdfaState() *stdNdfaState {
+	return &stdNdfaState{
+		literals: make(map[rune][]*stdNdfaState),
+		ranges:   make(map[CharacterRange][]*stdNdfaState),
 	}
 }
 
-func (st *stdLexlNdfaState) Id() int {
+func (st *stdNdfaState) ID() int {
 	return st.id
 }
 
-func (st *stdLexlNdfaState) Literals() []rune {
+// The following accessors just copy their state's fields.
+func (st *stdNdfaState) Literals() []rune {
 	res := make([]rune, 0, len(st.literals))
-	for c, _ := range st.literals {
+	for c := range st.literals {
 		res = append(res, c)
 	}
 	return res
 }
 
-func (st *stdLexlNdfaState) Ranges() []CharacterRange {
+func (st *stdNdfaState) Ranges() []CharacterRange {
 	res := make([]CharacterRange, 0, len(st.ranges))
-	for r, _ := range st.ranges {
+	for r := range st.ranges {
 		res = append(res, r)
 	}
 	return res
 }
 
-func (st *stdLexlNdfaState) LiteralTransitions(c rune) []LexlNdfaState {
+func (st *stdNdfaState) LiteralTransitions(c rune) []NdfaState {
 	if m, has := st.literals[c]; has {
-		res := make([]LexlNdfaState, len(m))
+		res := make([]NdfaState, len(m))
 		for i, k := range m {
 			res[i] = k
 		}
 		return res
 	}
-	return []LexlNdfaState{}
+	return []NdfaState{}
 }
 
-func (st *stdLexlNdfaState) RangeTransitions(r CharacterRange) []LexlNdfaState {
+func (st *stdNdfaState) RangeTransitions(r CharacterRange) []NdfaState {
 	if m, has := st.ranges[r]; has {
-		res := make([]LexlNdfaState, len(m))
+		res := make([]NdfaState, len(m))
 		for i, k := range m {
 			res[i] = k
 		}
 		return res
 	}
-	return []LexlNdfaState{}
+	return []NdfaState{}
 }
 
-func (st *stdLexlNdfaState) EpsilonTransitions() []LexlNdfaState {
-	res := make([]LexlNdfaState, len(st.epsilons))
+func (st *stdNdfaState) EpsilonTransitions() []NdfaState {
+	res := make([]NdfaState, len(st.epsilons))
 	for i, k := range st.epsilons {
 		res[i] = k
 	}
 	return res
 }
 
-func (st *stdLexlNdfaState) Query(c rune) []LexlNdfaState {
-	var res []LexlNdfaState
-	resmap := make(map[*stdLexlNdfaState]bool)
+// This Query() does not need to be perforant; lexers will use the Dfa
+// instead.  This query is only for debugging / error unwinding.
+func (st *stdNdfaState) Query(c rune) []NdfaState {
+	var res []NdfaState
+	// Query the literals.
+	resmap := make(map[*stdNdfaState]bool)
 	if ns, has := st.literals[c]; has {
 		for _, s := range ns {
 			resmap[s] = true
 		}
 	}
+	// Query the ranges.
 	for r, ns := range st.ranges {
 		if c >= r.Least() && c <= r.Greatest() {
 			for _, s := range ns {
@@ -153,38 +233,54 @@ func (st *stdLexlNdfaState) Query(c rune) []LexlNdfaState {
 			}
 		}
 	}
-	for ns, _ := range resmap {
+	// Return the combined result set.
+	for ns := range resmap {
 		res = append(res, ns)
 	}
 	return res
 }
 
-func cloneNdfaState(state LexlNdfaState) (LexlNdfaState, error) {
+// clone* functions support subclassers of the lexl package interfaces -
+// whenever concrete functionality / access not available through 
+// these interfaces are needed, the corresponding objects are cloned
+// to std* so the operations can be performed.
+func cloneNdfaState(state NdfaState) (NdfaState, error) {
 	return nil, errors.New("cloneNdfaState() unimplemented")
 }
 
-func cloneNdfaStates(states []*stdLexlNdfaState) ([]*stdLexlNdfaState, error) {
+func cloneNdfaStates(states []*stdNdfaState) ([]*stdNdfaState, error) {
+	// Temporarily renumber the id fields for sanity checking and renumbering
+	// in the final clone.  First preserve the old ids.
 	savedIndex := make([]int, len(states))
 	for i, s := range states {
 		savedIndex[i] = s.id
 		s.id = i
 	}
+	// No matter what, restore these values by defer so that we do not
+	// mutate the states in the input.
 	defer func() {
 		for i, s := range states {
 			s.id = savedIndex[i]
 		}
 	}()
-	res := make([]*stdLexlNdfaState, len(states))
+	// Create the new states.
+	res := make([]*stdNdfaState, len(states))
 	for i := 0; i < len(res); i++ {
-		res[i] = &stdLexlNdfaState{
+		res[i] = &stdNdfaState{
 			id:       i,
-			literals: make(map[rune][]*stdLexlNdfaState),
-			ranges:   make(map[CharacterRange][]*stdLexlNdfaState),
+			literals: make(map[rune][]*stdNdfaState),
+			ranges:   make(map[CharacterRange][]*stdNdfaState),
 		}
 	}
+	// Copy the transitions to the new states, using the canonical new values 
+	// instead of the references to items in thegraph we are copying.
+	// Since we have renumbered the id fields to match the res[] array indexes,
+	// we can just use this slice to look up the values.  If a reference to an
+	// state was not in the given extent slice, the referenced object will not be
+	// identical to the one in the res[] slice.  In this case, fail with error.
 	for i, st := range states {
 		for c, m := range st.literals {
-			res[i].literals[c] = make([]*stdLexlNdfaState, 0, len(m))
+			res[i].literals[c] = make([]*stdNdfaState, 0, len(m))
 			for _, st := range m {
 				if st.id < 0 || st.id >= len(states) || states[st.id] != st {
 					return nil, errors.New("referenced state (literal) not within extent")
@@ -194,7 +290,7 @@ func cloneNdfaStates(states []*stdLexlNdfaState) ([]*stdLexlNdfaState, error) {
 		}
 		for r, m := range st.ranges {
 			nr := &characterRange{least: r.Least(), greatest: r.Greatest()}
-			res[i].ranges[nr] = make([]*stdLexlNdfaState, 0, len(m))
+			res[i].ranges[nr] = make([]*stdNdfaState, 0, len(m))
 			for _, st := range m {
 				if st.id < 0 || st.id >= len(states) || states[st.id] != st {
 					return nil, errors.New("referenced state (range) not within extent")
@@ -210,7 +306,7 @@ func cloneNdfaStates(states []*stdLexlNdfaState) ([]*stdLexlNdfaState, error) {
 		}
 		res[i].accepting = st.accepting
 		if st.acceptTransitions != nil {
-			res[i].acceptTransitions = make(map[string]*stdLexlNdfaState)
+			res[i].acceptTransitions = make(map[string]*stdNdfaState)
 			for k, v := range st.acceptTransitions {
 				if v == nil {
 					res[i].acceptTransitions[k] = nil
@@ -226,80 +322,80 @@ func cloneNdfaStates(states []*stdLexlNdfaState) ([]*stdLexlNdfaState, error) {
 	return res, nil
 }
 
-func cloneDfa(ndfa LexlDfa) (LexlDfa, error) {
+func cloneDfa(ndfa Dfa) (Dfa, error) {
 	return nil, errors.New("cloneDfa() unimplemented")
 }
 
-func cloneNdfa(ndfa LexlNdfa) (LexlNdfa, error) {
+func cloneNdfa(ndfa Ndfa) (Ndfa, error) {
 	return nil, errors.New("cloneNdfa() unimplemented")
 }
 
-func NdfaStateToString(ndfaState LexlNdfaState) string {
-	if strNdfaState, ok := ndfaState.(stringable); !ok {
+// NdfaStateToString converts a NdfaState to a human-readable multiline
+// string representation.  It is intended for debugging.
+func NdfaStateToString(ndfaState NdfaState) string {
+	var (
+		strNdfaState stringable
+		ok bool
+	)
+	if strNdfaState, ok = ndfaState.(stringable); !ok {
 		ndfaStateIf, err := cloneNdfaState(ndfaState)
 		if err != nil {
 			panic(err.Error())
 		}
 		return ndfaStateIf.(stringable).ToString()
-	} else {
-		return strNdfaState.ToString()
-	}
+	} 
+	return strNdfaState.ToString()
 }
 
-func NdfaToString(ndfa LexlNdfa) string {
-	if strNdfa, ok := ndfa.(stringable); !ok {
+// NdfaToString converts an entire Ndfa to a human-readable multiline
+// string representation.  It is intended for debugging.
+func NdfaToString(ndfa Ndfa) string {
+	var (
+		strNdfa stringable
+		ok bool
+	)
+	if strNdfa, ok = ndfa.(stringable); !ok {
 		ndfaIf, err := cloneNdfa(ndfa)
 		if err != nil {
 			panic(err.Error())
 		}
 		return ndfaIf.(stringable).ToString()
-	} else {
-		return strNdfa.ToString()
 	}
+	return strNdfa.ToString()
 }
 
-func (ndfa *stdLexlNdfa) NumStates() int {
+func (ndfa *stdNdfa) NumStates() int {
 	return len(ndfa.states)
 }
 
-func (ndfa *stdLexlNdfa) State(idx int) LexlNdfaState {
+func (ndfa *stdNdfa) State(idx int) NdfaState {
 	if idx < 0 || idx >= len(ndfa.states) {
 		return nil
 	}
 	return ndfa.states[idx]
 }
 
-/*
-type dfaTarget struct {
-	c   rune
-	nxt *stdLexlDfaState
+// DfaItem is an intermediate representation of a DFA state that defined the
+// mapping between NDFA states and DFA states.  It may be used to provide debugging
+// information to a lexer so that user-friendly error messages may be generated (
+// this is curretly unimplemented).
+type DfaItem struct {
+	id          int						// state id
+	states      map[int]int				// the set of NDFA states covered by this DFA state
+	hc          uint32					// cached hashcode
+	openGroups  map[rune]int			// currently unused
+	closeGroups map[rune]int			// currently unused
+	accepts     map[int]*DfaItem		// possibly ambiguous list of accepted terminals
+	literals    map[rune]*DfaItem		// literal character transition map
+	ranges      map[CharacterRange]*DfaItem 	// character range transition map
 }
 
-type dfaTargetList []dfaTarget
-
-type stdLexlDfaState struct {
-	id        int
-	hc		  uint32
-	targets   dfaTargetList
-}
-*/
-
-type lexlDfaItem struct {
-	id          int
-	states      map[int]int
-	hc          uint32
-	openGroups  map[rune]int
-	closeGroups map[rune]int
-	accepts     map[int]*lexlDfaItem
-	literals    map[rune]*lexlDfaItem
-	ranges      map[CharacterRange]*lexlDfaItem
-}
-
-func (di *lexlDfaItem) HashCode() uint32 {
+// HashCode (parser.Hashable)
+func (di *DfaItem) HashCode() uint32 {
 	if di.hc == 0 {
 		ids := make([]int, 0, len(di.states))
-		for stateId, _ := range di.states {
-			ids = append(ids, stateId)
+		for stateID := range di.states {
+			ids = append(ids, stateID)
 		}
 		sort.Ints(ids)
 		for _, k := range ids {
@@ -310,8 +406,9 @@ func (di *lexlDfaItem) HashCode() uint32 {
 	return di.hc
 }
 
-func (di *lexlDfaItem) Equals(v interface{}) bool {
-	if item, ok := v.(*lexlDfaItem); ok {
+// Equals (parser.Hashable)
+func (di *DfaItem) Equals(v interface{}) bool {
+	if item, ok := v.(*DfaItem); ok {
 		if len(item.states) != len(di.states) {
 			return false
 		}
@@ -325,21 +422,22 @@ func (di *lexlDfaItem) Equals(v interface{}) bool {
 	return true
 }
 
-func newLexlDfaItem() *lexlDfaItem {
-	return &lexlDfaItem{
+func newDfaItem() *DfaItem {
+	return &DfaItem{
 		states:      make(map[int]int),
 		openGroups:  make(map[rune]int),
 		closeGroups: make(map[rune]int),
-		accepts:     make(map[int]*lexlDfaItem),
-		literals:    make(map[rune]*lexlDfaItem),
-		ranges:      make(map[CharacterRange]*lexlDfaItem),
+		accepts:     make(map[int]*DfaItem),
+		literals:    make(map[rune]*DfaItem),
+		ranges:      make(map[CharacterRange]*DfaItem),
 	}
 }
 
-func (ndfa *stdLexlNdfa) TransformToDfa() (LexlDfa, error) {
-	terminalIndex := make(map[string]int)
-	terminals := []string{}
+func (ndfa *stdNdfa) TransformToDfa() (Dfa, error) {
+	terminalIndex := make(map[string]int)		// terminal name -> dfa code
+	terminals := []string{}						// slice of all term names indexed by code
 
+	// XXX - Debugging only, remove.
 	cle := &stdLexlCharacterLiteralExpression{}
 	mapChar := func(r rune) string {
 		var buf []rune
@@ -349,20 +447,28 @@ func (ndfa *stdLexlNdfa) TransformToDfa() (LexlDfa, error) {
 	// First, precompute the local epsilon closures of each state.
 	epsClosures := make([]map[int]int, len(ndfa.states))
 	for i := 0; i < len(ndfa.states); i++ {
-		epsMap := make(map[int]int)
-		nxt := make(map[int]int)
+		epsMap := make(map[int]int)		// keys are the result state id set
+		nxt := make(map[int]int)		// keys are the states we still need to recurse on
 		nxt[i] = 0
-		for len(nxt) > 0 {
+		for len(nxt) > 0 {				// iterate until the "stack" is empty
 			var stid, depth int
-			for k, v := range nxt {
+			
+			// grab a single k,v from the map via range
+			for k, v := range nxt{		
 				fmt.Printf("%d <- %d\n", i, k)
 				stid, depth = k, v
 				break
 			}
 			delete(nxt, stid)
+			
+			// If it's already in the result set, ignore it here.
 			if _, has := epsMap[stid]; has {
 				continue
 			}
+			
+			// Put it in the result set, and enqueue any states reached through
+			// its eps transitions that aren't already traversed.  Since the 
+			// "stack" is a map, we don't double-book them, ever.
 			epsMap[stid] = depth
 			state := ndfa.states[stid]
 			for _, nxtState := range state.epsilons {
@@ -372,11 +478,14 @@ func (ndfa *stdLexlNdfa) TransformToDfa() (LexlDfa, error) {
 			}
 		}
 		fmt.Printf("maplen %d %d\n", i, len(epsMap))
+		// Store the result.
 		epsClosures[i] = epsMap
 	}
 
-	itemIndex := make(map[uint32][]*lexlDfaItem)
-	getIndex := func(item *lexlDfaItem) (*lexlDfaItem, bool) {
+	itemIndex := make(map[uint32][]*DfaItem)		// items by hashcode
+	// getIndex() uses itemIndex to canonicalize new items, based on their
+	// parser.Hashable implementation.
+	getIndex := func(item *DfaItem) (*DfaItem, bool) {
 		m, has := itemIndex[item.HashCode()]
 		if !has {
 			return nil, false
@@ -388,29 +497,49 @@ func (ndfa *stdLexlNdfa) TransformToDfa() (LexlDfa, error) {
 		}
 		return nil, false
 	}
-	addIndex := func(item *lexlDfaItem) {
+	
+	// addIndex() adds a new item to the canonical map.
+	addIndex := func(item *DfaItem) {
 		hc := item.HashCode()
 		if m, has := itemIndex[hc]; has {
 			itemIndex[hc] = append(m, item)
 		} else {
-			itemIndex[hc] = []*lexlDfaItem{item}
+			itemIndex[hc] = []*DfaItem{item}
 		}
 	}
-	initialItem := newLexlDfaItem()
+	
+	// Create the initial item - this always corresponds to epsilon
+	// closure of the zero-indexed state, which is the unique Ndfa entry
+	// point by convention.
+	initialItem := newDfaItem()
 	initialItem.states = epsClosures[0]
-	itemIndex[initialItem.HashCode()] = []*lexlDfaItem{initialItem}
-	items := []*lexlDfaItem{initialItem}
-	stack := []*lexlDfaItem{initialItem}
+	itemIndex[initialItem.HashCode()] = []*DfaItem{initialItem}
+	
+	items := []*DfaItem{initialItem}	// Completed items 
+	stack := []*DfaItem{initialItem}	// Items whose Ndfa set is determined by whose
+										// transitions still need to be written.
+	// Until the stack is empty...
 	for len(stack) > 0 {
+		
+		// Get a value from the stack.
 		cs := stack[len(stack)-1]
 		stack = stack[0 : len(stack)-1]
-		for idx, _ := range cs.states {
+		
+		// We will iterate over the Ndfa states in the item's state set, and
+		// construct the Dfa transitions by creating prototype items from the unions
+		// of closures of each transition's next-state-set, then joining these
+		// into non-overlapping intervals by splitting the regions into 
+		// non-overlapping partitions and merging the items sharing partition
+		// segments together before canonicalizing them through the item index.
+		//
+		// Deep breath.
+		for idx := range cs.states {
 			state := ndfa.states[idx]
 			fmt.Printf("processing state %d\n", idx)
 			if len(state.literals) > 0 {
 				for c, m := range state.literals {
 					fmt.Printf("   literal %s\n", c)
-					nxtItem := newLexlDfaItem()
+					nxtItem := newDfaItem()
 					for _, ns := range m {
 						for k, v := range epsClosures[ns.id] {
 							nxtItem.states[k] = v
@@ -430,7 +559,7 @@ func (ndfa *stdLexlNdfa) TransformToDfa() (LexlDfa, error) {
 			if len(state.ranges) > 0 {
 				for r, m := range state.ranges {
 					fmt.Printf("   range [%s-%s]\n", r.Least(), r.Greatest())
-					nxtItem := newLexlDfaItem()
+					nxtItem := newDfaItem()
 					for _, ns := range m {
 						for k, v := range epsClosures[ns.id] {
 							nxtItem.states[k] = v
@@ -449,7 +578,7 @@ func (ndfa *stdLexlNdfa) TransformToDfa() (LexlDfa, error) {
 			}
 			if len(state.acceptTransitions) > 0 {
 				for name, nxt := range state.acceptTransitions {
-					nxtItem := newLexlDfaItem()
+					nxtItem := newDfaItem()
 					for k, v := range epsClosures[nxt.id] {
 						nxtItem.states[k] = v
 					}
@@ -474,7 +603,7 @@ func (ndfa *stdLexlNdfa) TransformToDfa() (LexlDfa, error) {
 	for i := 0; i < len(epsClosures); i++ {
 		fmt.Printf("   *%d = {", i)
 		set := []int{}
-		for k, _ := range epsClosures[i] {
+		for k := range epsClosures[i] {
 			set = append(set, k)
 		}
 		sort.Ints(set)
@@ -493,10 +622,11 @@ func (ndfa *stdLexlNdfa) TransformToDfa() (LexlDfa, error) {
 
 	// Translate the items into the DFA graph by combining/splitting literals
 	// and ranges into regions and discarding state number information.
-	graph := make([]stdLexlDfaState, len(items))
+	graph := make([]stdDfaState, len(items))
 	for i := 0; i < len(graph); i++ {
 		graph[i].id = i
 	}
+
 	for i, item := range items {
 		fmt.Printf("DFA STATE: %d\n", i)
 		state := &graph[i]
@@ -527,7 +657,7 @@ func (ndfa *stdLexlNdfa) TransformToDfa() (LexlDfa, error) {
 				state.targets[0] = dfaTarget{
 					c:          -1,
 					nxt:        nil,
-					accept:     -1,
+					//accept:     -1,
 					openGroup:  0,
 					closeGroup: 0,
 				}
@@ -552,20 +682,20 @@ func (ndfa *stdLexlNdfa) TransformToDfa() (LexlDfa, error) {
 						if nxtSt.c > st.c+1 {
 							newTarget := &dfaTarget{
 								c:      st.c + 1,
-								accept: -1,
+								//accept: -1,
 							}
 							addTargets = append(addTargets, newTarget)
 						}
 					} else {
 						// This target came from a range, which we must search for.
-						for r, _ := range item.ranges {
+						for r := range item.ranges {
 							fmt.Println("      it is a range")
 							if r.Least() == st.c {
 								fmt.Printf("      found: range [%s-%s]\n", mapChar(r.Least()), mapChar(r.Greatest()))
 								if nxtSt.c > r.Greatest()+1 {
 									newTarget := &dfaTarget{
 										c:      r.Greatest() + 1,
-										accept: -1,
+										//accept: -1,
 									}
 									addTargets = append(addTargets, newTarget)
 								}
@@ -576,7 +706,7 @@ func (ndfa *stdLexlNdfa) TransformToDfa() (LexlDfa, error) {
 				} else {
 					// We are at the end of the target list.
 					skipEndpoint := false
-					for r, _ := range item.ranges {
+					for r := range item.ranges {
 						if r.Least() == st.c {
 							if r.Greatest() < 0 {
 								skipEndpoint = true
@@ -589,7 +719,7 @@ func (ndfa *stdLexlNdfa) TransformToDfa() (LexlDfa, error) {
 						fmt.Println("    add final interval")
 						addTargets = append(addTargets, &dfaTarget{
 							c:      st.c + 1,
-							accept: -1,
+							//accept: -1,
 						})
 					}
 				}
@@ -620,7 +750,7 @@ func (ndfa *stdLexlNdfa) TransformToDfa() (LexlDfa, error) {
 		fmt.Println(len(state.targets))
 		fmt.Println(state.ToString())
 	}
-	return &stdLexlDfa{
+	return &stdDfa{
 		dfa:       graph,
 		terminals: terminals,
 	}, nil
@@ -632,12 +762,12 @@ type dfaTarget struct {
 	accept     int
 	openGroup  int
 	closeGroup int
-	nxt        *stdLexlDfaState
+	nxt        *stdDfaState
 }
 
 type dfaTargetList []dfaTarget
 
-type stdLexlDfaState struct {
+type stdDfaState struct {
 	id      int
 	targets dfaTargetList
 }
@@ -669,7 +799,8 @@ func (dtl dfaTargetList) Query(c rune) (*dfaTarget, int) {
 	return &dtl[idx], idx
 }
 
-func (di *lexlDfaItem) ToString() string {
+// ToString (parser.stringable)
+func (di *DfaItem) ToString() string {
 	var buf []byte
 	cle := &stdLexlCharacterLiteralExpression{}
 	mapChar := func(r rune) string {
@@ -696,7 +827,7 @@ func (di *lexlDfaItem) ToString() string {
 	}
 	buf = append(buf, fmt.Sprintf("<%d>:{", di.id)...)
 	set := []int{}
-	for k, _ := range di.states {
+	for k := range di.states {
 		set = append(set, k)
 	}
 	sort.Ints(set)
@@ -719,7 +850,7 @@ func (di *lexlDfaItem) ToString() string {
 	return string(buf)
 }
 
-func (ndfa *stdLexlNdfa) ToString() string {
+func (ndfa *stdNdfa) ToString() string {
 	var buf []rune
 	cle := &stdLexlCharacterLiteralExpression{}
 	mapChar := func(r rune) string {
@@ -792,97 +923,102 @@ func (ndfa *stdLexlNdfa) ToString() string {
 	return string(buf)
 }
 
-func DfaToString(dfa LexlDfa) string {
-	if strDfa, ok := dfa.(stringable); !ok {
+// DfaToString converts an entire Dfa to a human-readable multiline
+// string representation.  It is intended for debugging.
+func DfaToString(dfa Dfa) string {
+	var (
+		strDfa stringable
+		ok bool
+	)
+	if strDfa, ok = dfa.(stringable); !ok {
 		dfaIf, err := cloneDfa(dfa)
 		if err != nil {
 			panic(err.Error())
 		}
 		return dfaIf.(stringable).ToString()
-	} else {
-		return strDfa.ToString()
 	}
+	return strDfa.ToString()
 }
 
-func (ds *stdLexlDfaState) ToString() string {
+func (slds *stdDfaState) ToString() string {
 	var buf []byte
 	cle := &stdLexlCharacterLiteralExpression{}
 	mapChar := func(r rune) string {
 		var buf []rune
 		return string(cle.appendClassChar(buf, r))
 	}
-	buf = append(buf, fmt.Sprintf("[%d]\n", ds.id)...)
-	for _, target := range ds.targets {
+	buf = append(buf, fmt.Sprintf("[%d]\n", slds.id)...)
+	for _, target := range slds.targets {
 		if target.nxt == nil {
 			buf = append(buf, fmt.Sprintf("     %s X\n", mapChar(target.c))...)
 		} else {
 			buf = append(buf, fmt.Sprintf("     %s [%d]\n", mapChar(target.c), target.nxt.id)...)
 		}
 	}
-	if ds.accept >= 0 {
-		buf = append(buf, fmt.Sprintf("     (accept %d) [%d]\n", ds.accept, ds.acceptNxt.id)...)
+	if slds.accept >= 0 {
+		buf = append(buf, fmt.Sprintf("     (accept %d) [%d]\n", slds.accept,slds.acceptNxt.id)...)
 	}
 	return string(buf)
 }
 
-func (sld *stdLexlDfa) NumStates() int {
-	return len(sld.dfa)
+func (slds *stdDfa) NumStates() int {
+	return len(slds.dfa)
 }
 
-func (sld *stdLexlDfa) State(idx int) LexlDfaState {
-	if idx < 0 || idx >= len(sld.dfa) {
+func (slds *stdDfa) State(idx int) DfaState {
+	if idx < 0 || idx >= len(slds.dfa) {
 		return nil
 	}
-	return &sld.dfa[idx]
+	return &slds.dfa[idx]
 }
 
-func (sld *stdLexlDfa) NumTerminals() int {
-	return len(sld.terminals)
+func (slds *stdDfa) NumTerminals() int {
+	return len(slds.terminals)
 }
 
-func (sld *stdLexlDfa) Terminal(idx int) string {
-	return sld.terminals[idx]
+func (slds *stdDfa) Terminal(idx int) string {
+	return slds.terminals[idx]
 }
 
-func (sld *stdLexlDfa) ToString() string {
+func (slds *stdDfa) ToString() string {
 	var buf []byte
-	for i, terminal := range sld.terminals {
+	for i, terminal := range slds.terminals {
 		buf = append(buf, fmt.Sprintf("%d:%s\n", i, terminal)...)
 	}
-	for _, state := range sld.dfa {
+	for _, state := range slds.dfa {
 		buf = append(buf, state.ToString()...)
 	}
 	buf = append(buf, '\n')
 	return string(buf)
 }
 
-func (slds *stdLexlDfaState) Id() int {
+func (slds *stdDfaState) ID() int {
 	return slds.id
 }
 
-func (slds *stdLexlDfaState) NumIntervals() int {
+func (slds *stdDfaState) NumIntervals() int {
 	return len(slds.targets)
 }
 
-func (slds *stdLexlDfaState) IntervalLower(idx int) rune {
+func (slds *stdDfaState) IntervalLower(idx int) rune {
 	return slds.targets[idx].c
 }
 
-func (slds *stdLexlDfaState) IntervalTransition(idx int) LexlDfaState {
+func (slds *stdDfaState) IntervalTransition(idx int) DfaState {
 	return slds.targets[idx].nxt
 }
 
-func (slds *stdLexlDfaState) CanAccept() bool {
+func (slds *stdDfaState) CanAccept() bool {
 	return slds.accept >= 0 && slds.acceptNxt != nil
 }
 
-func (slds *stdLexlDfaState) AcceptTransition() (int, LexlDfaState) {
+func (slds *stdDfaState) AcceptTransition() (int, DfaState) {
 	return slds.accept, slds.acceptNxt
 }
 
 //func (dtl dfaTargetList) Query(c rune) (*dfaTarget, int) {
 
-func (slds *stdLexlDfaState) Query(c rune) LexlDfaState {
+func (slds *stdDfaState) Query(c rune) DfaState {
 	if slds == nil {
 		panic("WTF2")
 	}

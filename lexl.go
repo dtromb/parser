@@ -13,14 +13,14 @@ var global_LexlGrammarBnf0 = "\n" +
 type charRangeTransition struct {
 	firstChar byte
 	lastChar  byte
-	nxt       *stdLexlNdfaState
+	nxt       *stdNdfaState
 }
 
-type stdLexlNdfaState struct {
+type stdNdfaState struct {
 	id       uint32
-	schar    map[byte][]*stdLexlNdfaState
+	schar    map[byte][]*stdNdfaState
 	charmaps []*charRangeTransition
-	epsTrans []*stdLexlNdfaState
+	epsTrans []*stdNdfaState
 }
 
 type stdLexlDfaState struct {

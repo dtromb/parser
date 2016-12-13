@@ -36,7 +36,7 @@ func (pe *stdLexlPlusExpression) Submatch() MatchExpr {
 	return pe.submatch
 }
 
-func (se *stdLexlPlusExpression) GenerateNdfaStates() (states []*stdLexlNdfaState, err error) {
+func (se *stdLexlPlusExpression) GenerateNdfaStates() (states []*stdNdfaState, err error) {
 	fmt.Println("PLUS")
 	sub, ok := se.submatch.(ndfaStateGenerator)
 	if !ok {

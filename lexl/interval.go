@@ -6,10 +6,10 @@ import (
 )
 
 type interval struct {
-	first    int
-	last     int
-	priority int
-	data     interface{}
+	first    int			// first codepoint in interval
+	last     int			// last codepoint in interval
+	priority int			// optional priority number
+	data     interface{}	// user data
 }
 
 type ivpriset []*interval
@@ -22,6 +22,13 @@ type ivleftset ivpriset
 
 func (ls ivleftset) Less(i, j int) bool { return ls[i].first < ls[j].first }
 
+
+// resolveIntervalsMerging() - Remove overlaps in a slice of intervals by merging
+//							   the user data in regions of overlap according to a 
+//							   caller-supplied function.
+func resolveIntervalsMerging(intervals []*interval, merge func(aData, bData interface{}) (newPriority int, err error)) ([]*interval, error) {
+	panic("unimplemented")
+}
 
 // resolveIntervals() - Remove overlaps in a slice of intervals by preferencing
 // 						regions according to an interval parameter.
@@ -121,16 +128,6 @@ func resolveIntervals(intervals []*interval) []*interval {
 			}
 			res = append(res[0:idx], insertIvs...) 
 		}
-		//fmt.Println("--- add iteration")
-		//for i, r := range res {
-		//	var name string
-		//	if str, ok := r.data.(string); ok {
-		//		name = str
-		//	} else {
-		//		name = "*"
-		//	}
-		//	fmt.Printf("%d: {%s: %d - %d (%d)}\n", i, name, r.first, r.last, r.priority)
-		//}
 	}
 	// All of the intervals are now added to the /res/ slice, and none overlap.
 	if res[len(res)-1].last == math.MaxInt64 {
@@ -138,14 +135,3 @@ func resolveIntervals(intervals []*interval) []*interval {
 	}
 	return res
 }
-/*
-
-	0	.....							N-1
-	0 1 2... a=idx ....					N-1
-	0 1 2....a a+1 .... b=lastIdx .... 	N-1
-
-	0i 1i 2i .... ki = len(in)
-	
-		
-
-*/

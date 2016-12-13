@@ -44,10 +44,10 @@ func (ae *stdLexlAlternationExpression) Match(idx int) MatchExpr {
 	return ae.matches[idx]
 }
 
-func (ae *stdLexlAlternationExpression) GenerateNdfaStates() (states []*stdLexlNdfaState, err error) {
+func (ae *stdLexlAlternationExpression) GenerateNdfaStates() (states []*stdNdfaState, err error) {
 	fmt.Println("ALTERNATION")
-	var initial *stdLexlNdfaState
-	var res, aRes []*stdLexlNdfaState
+	var initial *stdNdfaState
+	var res, aRes []*stdNdfaState
 	for i, sub := range ae.matches {
 		submatch, ok := sub.(ndfaStateGenerator)
 		if !ok {

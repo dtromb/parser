@@ -34,7 +34,7 @@ func (se *stdLexlStarExpression) Submatch() MatchExpr {
 	return se.submatch
 }
 
-func (se *stdLexlStarExpression) GenerateNdfaStates() (states []*stdLexlNdfaState, err error) {
+func (se *stdLexlStarExpression) GenerateNdfaStates() (states []*stdNdfaState, err error) {
 	fmt.Println("STAR")
 	sub, ok := se.submatch.(ndfaStateGenerator)
 	if !ok {

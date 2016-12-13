@@ -239,11 +239,11 @@ func regularizeBoundedIntervals(ranges []*characterRange) []*characterRange {
 	return res
 }
 
-func (cc *stdLexlCharacterClassExpression) GenerateNdfaStates() (states []*stdLexlNdfaState, err error) {
+func (cc *stdLexlCharacterClassExpression) GenerateNdfaStates() (states []*stdNdfaState, err error) {
 	fmt.Println("CHARCLASS")
 	cls := cc.cclass
-	init := newStdLexlNdfaState()
-	final := newStdLexlNdfaState()
+	init := newStdNdfaState()
+	final := newStdNdfaState()
 	final.accepting = true
 	if cls.negated {
 		var ranges []*characterRange
@@ -256,20 +256,20 @@ func (cc *stdLexlCharacterClassExpression) GenerateNdfaStates() (states []*stdLe
 		ranges = invertRegularizedIntervals(regularizeBoundedIntervals(ranges))
 		for _, r := range ranges {
 			if r.Greatest() == r.Least() {
-				init.literals[r.Least()] = []*stdLexlNdfaState{final}
+				init.literals[r.Least()] = []*stdNdfaState{final}
 			} else {
-				init.ranges[r] = []*stdLexlNdfaState{final}
+				init.ranges[r] = []*stdNdfaState{final}
 			}
 		}
 	} else {
 		for _, c := range cls.literals {
-			init.literals[c] = []*stdLexlNdfaState{final}
+			init.literals[c] = []*stdNdfaState{final}
 		}
 		for _, r := range cls.ranges {
-			init.ranges[r] = []*stdLexlNdfaState{final}
+			init.ranges[r] = []*stdNdfaState{final}
 		}
 	}
-	return []*stdLexlNdfaState{init, final}, nil
+	return []*stdNdfaState{init, final}, nil
 }
 
 func (cc *stdLexlCharacterClassExpression) isPrintableClassChar(c rune) bool {

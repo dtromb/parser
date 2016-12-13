@@ -28,13 +28,13 @@ func (cle *stdLexlCharacterLiteralExpression) Character() rune {
 	return cle.c
 }
 
-func (cle *stdLexlCharacterLiteralExpression) GenerateNdfaStates() (states []*stdLexlNdfaState, err error) {
+func (cle *stdLexlCharacterLiteralExpression) GenerateNdfaStates() (states []*stdNdfaState, err error) {
 	fmt.Println("CHARLIT")
-	s0 := newStdLexlNdfaState()
-	s1 := newStdLexlNdfaState()
+	s0 := newStdNdfaState()
+	s1 := newStdNdfaState()
 	s1.accepting = true
-	s0.literals[cle.c] = []*stdLexlNdfaState{s1}
-	return []*stdLexlNdfaState{s0, s1}, nil
+	s0.literals[cle.c] = []*stdNdfaState{s1}
+	return []*stdNdfaState{s0, s1}, nil
 }
 
 func (cle *stdLexlCharacterLiteralExpression) isPrintableClassChar(c rune) bool {
