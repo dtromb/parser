@@ -433,16 +433,18 @@ func newDfaItem() *DfaItem {
 	}
 }
 
+// The monster.  
+// XXX - Abstract this stuff / break it up a little / make it more readable.
 func (ndfa *stdNdfa) TransformToDfa() (Dfa, error) {
 	terminalIndex := make(map[string]int)		// terminal name -> dfa code
 	terminals := []string{}						// slice of all term names indexed by code
 
 	// XXX - Debugging only, remove.
-	cle := &stdLexlCharacterLiteralExpression{}
-	mapChar := func(r rune) string {
-		var buf []rune
-		return string(cle.appendClassChar(buf, r))
-	}
+	//cle := &stdLexlCharacterLiteralExpression{}
+	//mapChar := func(r rune) string {
+	//	var buf []rune
+	//	return string(cle.appendClassChar(buf, r))
+	//}
 
 	// First, precompute the local epsilon closures of each state.
 	epsClosures := make([]map[int]int, len(ndfa.states))
@@ -468,7 +470,7 @@ func (ndfa *stdNdfa) TransformToDfa() (Dfa, error) {
 			
 			// Put it in the result set, and enqueue any states reached through
 			// its eps transitions that aren't already traversed.  Since the 
-			// "stack" is a map, we don't double-book them, ever.
+			// "stack" is actually a map, we don't double-book them, ever.
 			epsMap[stid] = depth
 			state := ndfa.states[stid]
 			for _, nxtState := range state.epsilons {
@@ -482,7 +484,7 @@ func (ndfa *stdNdfa) TransformToDfa() (Dfa, error) {
 		epsClosures[i] = epsMap
 	}
 
-	itemIndex := make(map[uint32][]*DfaItem)		// items by hashcode
+	itemIndex := make(map[uint32][]*DfaItem)		// all canonical computed items by hashcode
 	// getIndex() uses itemIndex to canonicalize new items, based on their
 	// parser.Hashable implementation.
 	getIndex := func(item *DfaItem) (*DfaItem, bool) {
@@ -532,247 +534,162 @@ func (ndfa *stdNdfa) TransformToDfa() (Dfa, error) {
 		// non-overlapping partitions and merging the items sharing partition
 		// segments together before canonicalizing them through the item index.
 		//
-		// Deep breath.
+		// Deep breath...
+		accepts := make(map[string][]int)
+		intervals := make([]*interval, 0, 16)
 		for idx := range cs.states {
+			
+			// For each NDFA state in the item's state set....
 			state := ndfa.states[idx]
 			fmt.Printf("processing state %d\n", idx)
-			if len(state.literals) > 0 {
-				for c, m := range state.literals {
-					fmt.Printf("   literal %s\n", c)
-					nxtItem := newDfaItem()
-					for _, ns := range m {
-						for k, v := range epsClosures[ns.id] {
-							nxtItem.states[k] = v
-						}
+			for c, m := range state.literals {
+				// Create a new DFA item from the union of the
+				// eps closures of the transition's next-state set.
+				nxtItem := newDfaItem()
+				for _, ns := range m {
+					for k := range epsClosures[ns.id] {
+						nxtItem.states[k] = k
 					}
-					cItem, has := getIndex(nxtItem)
-					if !has {
-						cItem = nxtItem
-						addIndex(cItem)
-						cItem.id = len(items)
-						items = append(items, cItem)
-						stack = append(stack, cItem)
-					}
-					cs.literals[c] = cItem
 				}
-			}
-			if len(state.ranges) > 0 {
-				for r, m := range state.ranges {
-					fmt.Printf("   range [%s-%s]\n", r.Least(), r.Greatest())
-					nxtItem := newDfaItem()
-					for _, ns := range m {
-						for k, v := range epsClosures[ns.id] {
-							nxtItem.states[k] = v
-						}
-					}
-					cItem, has := getIndex(nxtItem)
-					if !has {
-						cItem = nxtItem
-						addIndex(cItem)
-						cItem.id = len(items)
-						items = append(items, cItem)
-						stack = append(stack, cItem)
-					}
-					cs.ranges[r] = cItem
+				// Create an interval with only the literal whose data
+				// point is the new dfa item.
+				nInt := &interval{
+					first: int(c),
+					last: int(c),
+					data: nxtItem,
 				}
+				// Store it in the interval set.
+				intervals = append(intervals, nInt)
 			}
-			if len(state.acceptTransitions) > 0 {
-				for name, nxt := range state.acceptTransitions {
-					nxtItem := newDfaItem()
-					for k, v := range epsClosures[nxt.id] {
-						nxtItem.states[k] = v
+			// And the same for the ranges, with the appropriate interval
+			// which covers the range.
+			for r, m := range state.ranges {
+				nxtItem := newDfaItem()
+				for _, ns := range m {
+					for k := range epsClosures[ns.id] {
+						nxtItem.states[k] = k
 					}
-					cItem, has := getIndex(nxtItem)
-					if !has {
-						cItem = nxtItem
-						addIndex(cItem)
-						cItem.id = len(items)
-						items = append(items, cItem)
-						stack = append(stack, cItem)
-					}
-					if _, has := terminalIndex[name]; !has {
-						terminalIndex[name] = len(terminalIndex)
-						terminals = append(terminals, name)
-						fmt.Printf("accept %s is %d\n", name, terminalIndex[name])
-					}
-					cs.accepts[terminalIndex[name]] = cItem
+				}
+				nInt := &interval{
+					first: int(r.Least()),
+					last: int(r.Greatest()),
+					data: nxtItem,
+				}
+				intervals = append(intervals, nInt)
+			}		
+			
+			// Store the accept state indexes so that we can create an
+			// item-wide accept map for them when we have collected them
+			// from every Ndfa state.
+			for terminal, ns := range state.acceptTransitions {
+				if _, has := accepts[terminal]; !has {
+					accepts[terminal] = make([]int,0,len(state.acceptTransitions))
+				}
+				for k := range epsClosures[ns.id] {
+					accepts[terminal] = append(accepts[terminal], k)
 				}
 			}
 		}
+		
+		// The function that merges two intervals / prototype states into
+		// a single one where they overlap...
+		merge := func(aData, bData interface{}) (int,interface{},error) {
+			iva, ok := aData.(*DfaItem)
+			if !ok {
+				return 0, nil, errors.New("first argument was not a DfaItem")
+			}
+			ivb, ok := bData.(*DfaItem)
+			if !ok {
+				return 0, nil, errors.New("second argument was not a DfaItem")
+			}
+			newItem := newDfaItem()
+			for k := range iva.states {
+				newItem.states[k] = k
+			}
+			for k := range ivb.states {
+				newItem.states[k] = k
+			}
+			return 0, newItem, nil
+		}
+			
+		// Delegate the gory work of the interval merging to the 
+		// resolveIntervalsMerging() function.
+		intervals, err := resolveIntervalsMerging(intervals, merge)
+		if err != nil {
+			return nil, err
+		}
+			
+		// Canonicalize each prototype item, and add it to the 
+		// stack if it is new.
+		for _, iv := range intervals {
+			newItem := iv.data.(*DfaItem)
+			cItem, has := getIndex(newItem)
+			if !has {
+				cItem = newItem
+				addIndex(cItem)
+				stack = append(stack, cItem)
+			} 
+			if iv.first == iv.last {
+				cs.literals[rune(iv.first)] = cItem
+			} else {
+				cs.ranges[characterRange{rune(iv.first),rune(iv.last)}] = cItem
+			}
+		}
+		
+		// Create and canonicalize the accept state item for each
+		// accept.  Multiple possible accepts are OK in DfaItem, we
+		// will resolve these next when constructing DfaState.
+		for name, states := range accepts {
+			newItem := newDfaItem()
+			for _, id := range states {
+				newItem.states[id] = id
+			}
+			cItem, has := getIndex(newItem)
+			if !has {
+				cItem = newItem
+				addIndex(cItem)
+			}
+			cs.accepts[terminalIndex[name]] = cItem
+		}
+		
+		// The current state is complete; assign it an id and
+		// put it in the result set.
+		cs.id = len(items)
+		items = append(items, cs)
 	}
-	for i := 0; i < len(epsClosures); i++ {
-		fmt.Printf("   *%d = {", i)
-		set := []int{}
-		for k := range epsClosures[i] {
-			set = append(set, k)
-		}
-		sort.Ints(set)
-		for i, k := range set {
-			fmt.Printf("%d", k)
-			if i < len(set)-1 {
-				fmt.Printf(",")
-			}
-		}
-		fmt.Println("}")
-	}
-	fmt.Printf("generated %d DFA items\n", len(items))
-	for _, item := range items {
-		fmt.Println(item.ToString())
-	}
-
-	// Translate the items into the DFA graph by combining/splitting literals
-	// and ranges into regions and discarding state number information.
-	graph := make([]stdDfaState, len(items))
-	for i := 0; i < len(graph); i++ {
-		graph[i].id = i
-	}
-
-	for i, item := range items {
-		fmt.Printf("DFA STATE: %d\n", i)
-		state := &graph[i]
-		state.id = i
-		state.targets = dfaTargetList(make([]dfaTarget, 0, len(item.literals)+len(item.ranges)))
-		for c, nxt := range item.literals {
-			fmt.Printf("   add literal %s\n", mapChar(c))
-			target := dfaTarget{
-				c:   c,
-				nxt: &graph[nxt.id],
-			}
-			state.targets = append(state.targets, target)
-		}
-		for r, nxt := range item.ranges {
-			fmt.Printf("   add range [%s-%s] -> %d\n", mapChar(r.Least()), mapChar(r.Greatest()), nxt.id)
-			target := dfaTarget{
-				c:   r.Least(),
-				nxt: &graph[nxt.id],
-			}
-			state.targets = append(state.targets, target)
-		}
-		if len(state.targets) != 0 {
-			sort.Sort(state.targets)
-			if state.targets[0].c > 0 {
-				// Add an initial sentinel.
-				state.targets = append(state.targets, dfaTarget{})
-				copy(state.targets[1:], state.targets[0:len(state.targets)-1])
-				state.targets[0] = dfaTarget{
-					c:          -1,
-					nxt:        nil,
-					//accept:     -1,
-					openGroup:  0,
-					closeGroup: 0,
-				}
-				fmt.Println("   add sentinel")
-			}
-			// Run through the targets and fill in any gaps with non-accepting
-			// targets so that we can look at only the target list query result
-			// and its successor to match a character.
-			var addTargets []*dfaTarget
-			for i, st := range state.targets {
-				if st.c < 0 {
-					fmt.Println("   skip initial interval")
-					continue
-				}
-				if i < len(state.targets)-1 {
-					fmt.Printf("   consider interval at %s\n", mapChar(st.c))
-					// There is a next target.
-					nxtSt := state.targets[i+1]
-					if _, has := item.literals[st.c]; has {
-						// This target came from a literal.
-						fmt.Println("      it is a literal")
-						if nxtSt.c > st.c+1 {
-							newTarget := &dfaTarget{
-								c:      st.c + 1,
-								//accept: -1,
-							}
-							addTargets = append(addTargets, newTarget)
-						}
-					} else {
-						// This target came from a range, which we must search for.
-						for r := range item.ranges {
-							fmt.Println("      it is a range")
-							if r.Least() == st.c {
-								fmt.Printf("      found: range [%s-%s]\n", mapChar(r.Least()), mapChar(r.Greatest()))
-								if nxtSt.c > r.Greatest()+1 {
-									newTarget := &dfaTarget{
-										c:      r.Greatest() + 1,
-										//accept: -1,
-									}
-									addTargets = append(addTargets, newTarget)
-								}
-								break
-							}
-						}
-					}
-				} else {
-					// We are at the end of the target list.
-					skipEndpoint := false
-					for r := range item.ranges {
-						if r.Least() == st.c {
-							if r.Greatest() < 0 {
-								skipEndpoint = true
-							}
-							break
-						}
-					}
-					// If there isn't already a final interval, add one.
-					if !skipEndpoint {
-						fmt.Println("    add final interval")
-						addTargets = append(addTargets, &dfaTarget{
-							c:      st.c + 1,
-							//accept: -1,
-						})
-					}
-				}
-			}
-			// Add the new targets back into the state.
-			for _, nt := range addTargets {
-				state.targets = append(state.targets, *nt)
-			}
-			sort.Sort(state.targets)
-		}
-		// Set the proper reduction for this state if available.
-		//
-		// XXX - Support ambiguity here.   Verify that it's always an OK
-		// default to take the first accepting terminal in the state as it
-		// appears in the grammar, and put some facility in the ndfa interface
-		// for getting at that info.
-		if len(item.accepts) > 1 {
-			panic("ambiguous terminal reduction currently unimplemented")
-		}
-		if len(item.accepts) == 0 {
-			state.accept = -1
-		} else {
-			for k, v := range item.accepts {
-				state.accept = k
-				state.acceptNxt = &graph[v.id]
-			}
-		}
-		fmt.Println(len(state.targets))
-		fmt.Println(state.ToString())
-	}
-	return &stdDfa{
-		dfa:       graph,
+	
+	// At this point all of the needed elements of powerset(NdfaItem) are 
+	// converted to DfaItem and all of the transitions out of each DfaItem
+	// are resolved to other DfaItem in the graph.  Now we migrate these to
+	// DfaState, dropping information about the ndfa state sets and converting 
+	// the ranges and literals to target entries which cover the
+	// entire codepoint range and can be efficiently queried.
+	dfa := &stdDfa{
+		dfa: make([]stdDfaState, len(items)),
 		terminals: terminals,
-	}, nil
+	}
+	dfa=dfa
+	//for _, item := range items {
+	//}
+	panic("unimplemented")
 }
-
-/*
+/*		
 type dfaTarget struct {
-	c          rune
-	accept     int
-	openGroup  int
-	closeGroup int
-	nxt        *stdDfaState
+	c      rune				// The least character in this target interval.
+	openGroup  int			// Currently unused
+	closeGroup int			// Currently unused
+	nxt        *stdDfaState // The next state to transition to.
 }
 
 type dfaTargetList []dfaTarget
 
 type stdDfaState struct {
-	id      int
-	targets dfaTargetList
+	id        int			// The state id
+	accept    int			// True iff the state may accept a terminal
+	acceptNxt *stdDfaState	// The next state reached on accepting a terminal
+	targets   dfaTargetList	// sort.Interface sortable list of transition target intervals
 }
 */
-
 func (dtl dfaTargetList) Len() int           { return len(dtl) }
 func (dtl dfaTargetList) Less(i, j int) bool { return dtl[i].c < dtl[j].c }
 func (dtl dfaTargetList) Swap(i, j int)      { dtl[i], dtl[j] = dtl[j], dtl[i] }

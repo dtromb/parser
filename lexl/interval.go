@@ -26,7 +26,7 @@ func (ls ivleftset) Less(i, j int) bool { return ls[i].first < ls[j].first }
 // resolveIntervalsMerging() - Remove overlaps in a slice of intervals by merging
 //							   the user data in regions of overlap according to a 
 //							   caller-supplied function.
-func resolveIntervalsMerging(intervals []*interval, merge func(aData, bData interface{}) (newPriority int, err error)) ([]*interval, error) {
+func resolveIntervalsMerging(intervals []*interval, merge func(aData, bData interface{}) (newPri int, newData interface{}, err error)) ([]*interval, error) {
 	panic("unimplemented")
 }
 
