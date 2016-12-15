@@ -668,11 +668,54 @@ func (ndfa *stdNdfa) TransformToDfa() (Dfa, error) {
 		dfa: make([]stdDfaState, len(items)),
 		terminals: terminals,
 	}
-	dfa=dfa
-	//for _, item := range items {
-	//}
-	panic("unimplemented")
+	for i, item := range items {
+		var acceptId int
+		if len(item.accepts) == 0 {
+			acceptId = -1
+		} else {
+			if len(item.accepts) > 1 {
+				panic("A/A conflict resolution net yet implemented\\n")
+			}
+			for k := range item.accepts {
+				acceptId = k
+			}
+		}
+		dfa.dfa[i] = stdDfaState{
+			id: i,
+			accept: acceptId,
+			acceptNxt: &dfa.dfa[acceptId],
+		}
+		intervals := ivleftset(make([]*interval, 0, len(item.literals)+len(item.ranges)))
+		for c, nxtItem := range item.literals {
+			intervals = append(intervals, &interval{first: int(c), last: int(c), data: &dfa.dfa[nxtItem.id]})
+		}
+		for r, nxtItem := range item.ranges {
+			intervals = append(intervals, &interval{first: int(r.Least()), last: int(r.Greatest()), data:&dfa.dfa[nxtItem.id]})
+		}
+		sort.Stable(intervals)
+		targetList := dfaTargetList(make([]dfaTarget,0,len(intervals)))
+		for idx, iv := range intervals {
+			target := dfaTarget{
+				c: rune(iv.first),
+				nxt: iv.data.(*stdDfaState),
+			}
+			targetList = append(targetList, target)
+			if idx < len(intervals)-1 {
+				nxtIv := intervals[idx+1]
+				if nxtIv.first == iv.last+1 {
+					continue
+				}
+			}
+			target = dfaTarget{
+				c: rune(iv.last+1),
+			}
+			targetList = append(targetList, target)
+		}
+		dfa.dfa[i].targets = targetList
+	}
+	return dfa, nil
 }
+
 /*		
 type dfaTarget struct {
 	c      rune				// The least character in this target interval.

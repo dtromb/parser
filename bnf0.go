@@ -305,7 +305,7 @@ func (ls *bnf0LexerState) NextToken() (Token, error) {
 			}
 		}
 	}
-	ls.in.Discard(len(tok.Literal()))
+	//ls.in.Discard(len(tok.Literal()))
 	return tok, nil
 }
 

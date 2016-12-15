@@ -20,7 +20,9 @@ func (ps ivpriset) Swap(i, j int)      { ps[i], ps[j] = ps[j], ps[i] }
 
 type ivleftset ivpriset
 
+func (ls ivleftset) Len() int           { return len(ls) }
 func (ls ivleftset) Less(i, j int) bool { return ls[i].first < ls[j].first }
+func (ls ivleftset) Swap(i, j int)      { ls[i], ls[j] = ls[j], ls[i] }
 
 
 // resolveIntervalsMerging() - Remove overlaps in a slice of intervals by merging
