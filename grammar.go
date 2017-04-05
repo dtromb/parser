@@ -527,9 +527,11 @@ func (sg *stdGrammarBuilder) Build() (Grammar, error) {
 	grammar.epsilon.grammar = grammar
 	grammar.bottom.grammar = grammar
 	for _, t := range sg.terminals {
+		t.stdTerm.grammar = grammar
 		grammar.terminals = append(grammar.terminals, t.stdTerm)
 	}
 	for _, nt := range sg.nonterminals {
+		nt.stdTerm.grammar = grammar
 		grammar.nonterminals = append(grammar.nonterminals, nt.stdTerm)
 	}
 	for _, m := range sg.finishedRules {
